@@ -9,6 +9,6 @@
 // events and a local-only account, stored just in your browser, so you can
 // try the whole UI before setting up a backend.
 window.APP_CONFIG = {
-  SUPABASE_URL: '',sb_publishable_P_unpWm8Ja_rYv8pdMOPQQ_rbD1VqC4
-  SUPABASE_ANON_KEY: '',eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5ZXd4YWRucHVkdmJieHR3bnd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0MDc3ODksImV4cCI6MjA5ODk4Mzc4OX0.OoZz7czflo7hEt0JOBqxUgVx7kDXimbG3dVsvQLxQc8
+  SUPABASE_URL: 'https://vyewxadnpudvbbxtwnwt.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_P_unpWm8Ja_rYv8pdMOPQQ_rbD1VqC4',
 };
