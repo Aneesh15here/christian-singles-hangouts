@@ -1,0 +1,226 @@
+// Real backend: talks to Supabase (Postgres + Auth) via the supabase-js
+// client created in supabase-client.js. Every method returns
+// { data, error } so app.js can handle both shapes uniformly.
+window.RealApi = (function () {
+  const sb = () => window.supabaseClient;
+
+  async function onAuthStateChange(cb) {
+    const { data } = sb().auth.onAuthStateChange((_event, session) => cb(session));
+    return data.subscription;
+  }
+
+  async function getSession() {
+    const { data } = await sb().auth.getSession();
+    return data.session;
+  }
+
+  async function signUp({ name, email, password }) {
+    const { error } = await sb().auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    });
+    return { error };
+  }
+
+  async function signIn({ email, password }) {
+    const { error } = await sb().auth.signInWithPassword({ email, password });
+    return { error };
+  }
+
+  async function signOut() {
+    await sb().auth.signOut();
+  }
+
+  async function getProfile(userId) {
+    const { data, error } = await sb()
+      .from('profiles')
+      .select('id, name, bio')
+      .eq('id', userId)
+      .single();
+    return { data, error };
+  }
+
+  async function updateProfile(userId, { name, bio }) {
+    const { error } = await sb()
+      .from('profiles')
+      .update({ name, bio })
+      .eq('id', userId);
+    return { error };
+  }
+
+  async function listEvents({ date, location, category } = {}) {
+    let query = sb()
+      .from('events')
+      .select('*, host:profiles(name)')
+      .order('event_date', { ascending: true })
+      .order('event_time', { ascending: true });
+
+    if (date) {
+      query = query.eq('event_date', date);
+    } else {
+      const today = new Date().toISOString().slice(0, 10);
+      query = query.gte('event_date', today);
+    }
+    if (location) query = query.ilike('location_name', `%${location}%`);
+    if (category) query = query.eq('category', category);
+
+    const { data: events, error } = await query;
+    if (error || !events) return { data: events, error };
+
+    const ids = events.map((e) => e.id);
+    let counts = {};
+    if (ids.length) {
+      const { data: rsvpRows } = await sb()
+        .from('rsvps')
+        .select('event_id')
+        .in('event_id', ids);
+      (rsvpRows || []).forEach((r) => {
+        counts[r.event_id] = (counts[r.event_id] || 0) + 1;
+      });
+    }
+    const withCounts = events.map((e) => ({ ...e, attendee_count: counts[e.id] || 0 }));
+    return { data: withCounts, error: null };
+  }
+
+  async function getEvent(id) {
+    const { data, error } = await sb()
+      .from('events')
+      .select('*, host:profiles(name, bio)')
+      .eq('id', id)
+      .single();
+    return { data, error };
+  }
+
+  async function createEvent(payload) {
+    const { data, error } = await sb().from('events').insert(payload).select().single();
+    return { data, error };
+  }
+
+  async function listAttendees(eventId) {
+    const { data, error } = await sb()
+      .from('rsvps')
+      .select('user_id, intro_line, created_at, profiles(name)')
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true });
+    return { data, error };
+  }
+
+  async function getMyRsvp(eventId, userId) {
+    const { data, error } = await sb()
+      .from('rsvps')
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    return { data, error };
+  }
+
+  async function rsvp(eventId, userId, introLine) {
+    const { error } = await sb()
+      .from('rsvps')
+      .insert({ event_id: eventId, user_id: userId, intro_line: introLine || null });
+    return { error };
+  }
+
+  async function cancelRsvp(eventId, userId) {
+    const { error } = await sb()
+      .from('rsvps')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('user_id', userId);
+    return { error };
+  }
+
+  async function listMessages(eventId) {
+    const { data, error } = await sb()
+      .from('event_messages')
+      .select('id, body, created_at, user_id, profiles(name)')
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true });
+    return { data, error };
+  }
+
+  async function sendMessage(eventId, userId, body) {
+    const { error } = await sb()
+      .from('event_messages')
+      .insert({ event_id: eventId, user_id: userId, body });
+    return { error };
+  }
+
+  function subscribeMessages(eventId, onInsert) {
+    const channel = sb()
+      .channel(`event_messages:${eventId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'event_messages', filter: `event_id=eq.${eventId}` },
+        (payload) => onInsert(payload.new)
+      )
+      .subscribe();
+    return () => sb().removeChannel(channel);
+  }
+
+  async function submitReport({ reporterId, eventId, reportedUserId, reason, details }) {
+    const { error } = await sb().from('reports').insert({
+      reporter_id: reporterId,
+      event_id: eventId || null,
+      reported_user_id: reportedUserId || null,
+      reason,
+      details: details || null,
+    });
+    return { error };
+  }
+
+  async function withAttendeeCounts(events) {
+    const ids = events.map((e) => e.id);
+    let counts = {};
+    if (ids.length) {
+      const { data: rsvpRows } = await sb().from('rsvps').select('event_id').in('event_id', ids);
+      (rsvpRows || []).forEach((r) => { counts[r.event_id] = (counts[r.event_id] || 0) + 1; });
+    }
+    return events.map((e) => ({ ...e, attendee_count: counts[e.id] || 0 }));
+  }
+
+  async function myHostedEvents(userId) {
+    const { data, error } = await sb()
+      .from('events')
+      .select('*, host:profiles(name)')
+      .eq('host_id', userId)
+      .order('event_date', { ascending: true });
+    if (error || !data) return { data, error };
+    return { data: await withAttendeeCounts(data), error: null };
+  }
+
+  async function myAttendingEvents(userId) {
+    const { data, error } = await sb()
+      .from('rsvps')
+      .select('event_id, events(*, host:profiles(name))')
+      .eq('user_id', userId);
+    if (error) return { data: null, error };
+    const events = (data || []).map((r) => r.events).filter(Boolean);
+    return { data: await withAttendeeCounts(events), error: null };
+  }
+
+  return {
+    onAuthStateChange,
+    getSession,
+    signUp,
+    signIn,
+    signOut,
+    getProfile,
+    updateProfile,
+    listEvents,
+    getEvent,
+    createEvent,
+    listAttendees,
+    getMyRsvp,
+    rsvp,
+    cancelRsvp,
+    listMessages,
+    sendMessage,
+    subscribeMessages,
+    submitReport,
+    myHostedEvents,
+    myAttendingEvents,
+  };
+})();

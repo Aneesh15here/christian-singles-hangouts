@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gather — hang out with other Christian singles</title>
+<meta name="description" content="Gather: find and host casual group hangouts with other Christian singles. Not a dating app — a place to build friendships and community." />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="toast" class="toast" hidden></div>
+
+<header id="app-nav" class="app-nav" hidden>
+  <div class="nav-inner">
+    <a href="#/discover" class="brand">🤝 Gather</a>
+    <nav class="nav-links">
+      <a href="#/discover" data-nav="discover">Discover</a>
+      <a href="#/create" data-nav="create">Host</a>
+      <a href="#/my-events" data-nav="my-events">My Events</a>
+      <a href="#/profile" data-nav="profile">Profile</a>
+      <a href="#/guidelines" data-nav="guidelines">Guidelines</a>
+    </nav>
+    <button id="logout-btn" class="btn btn-ghost">Log out</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================= LANDING ============================= -->
+  <section id="view-landing" class="view">
+    <section class="hero">
+      <div class="hero-inner">
+        <p class="eyebrow">For Christian singles, minus the swiping</p>
+        <h1>Come hang out. No pressure, no pairing off.</h1>
+        <p class="hero-sub">
+          Gather is where Christian singles find real things to do together —
+          hikes, coffee, board game nights, Bible study, potlucks — hosted by
+          people just like you. Show up, meet people, build friendships.
+        </p>
+        <div class="hero-ctas">
+          <a href="#/auth?mode=signup" class="btn btn-primary btn-lg">Get started free</a>
+          <a href="#/auth?mode=login" class="btn btn-ghost btn-lg">Log in</a>
+        </div>
+        <p class="hero-note">Free to join. Takes about a minute.</p>
+      </div>
+    </section>
+
+    <section class="value-props">
+      <div class="value-card">
+        <div class="value-icon">👋</div>
+        <h3>Always welcoming</h3>
+        <p>Every event here is open to new faces. Show up solo — that's normal, not awkward.</p>
+      </div>
+      <div class="value-card">
+        <div class="value-icon">🗓️</div>
+        <h3>Real plans, real people</h3>
+        <p>Hikes, trivia nights, potlucks, service projects — hosted by everyday members of the community, not an algorithm.</p>
+      </div>
+      <div class="value-card">
+        <div class="value-icon">🙅</div>
+        <h3>Not a dating app</h3>
+        <p>No swiping, no "who liked you," no matching. Just group hangouts and honest community.</p>
+      </div>
+    </section>
+
+    <section class="how-it-works">
+      <h2>How it works</h2>
+      <ol class="steps">
+        <li><span class="step-num">1</span><div><strong>Create your profile</strong><p>Just a name and an optional short bio. No unnecessary personal info.</p></div></li>
+        <li><span class="step-num">2</span><div><strong>Browse or host an event</strong><p>Filter by date, location, or activity type — or start your own from a suggested plan.</p></div></li>
+        <li><span class="step-num">3</span><div><strong>RSVP and show up</strong><p>See who's coming, chat with the group beforehand, and meet in person.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="about-section" id="about">
+      <h2>This is not a dating app</h2>
+      <p>
+        Gather exists for one reason: to make it easy for Christian singles to
+        spend time together doing something, without the pressure of romantic
+        matchmaking. There's no swiping, no "likes," no couple-pairing, and no
+        one-on-one private messaging between members anywhere in this app.
+        Every event is a group hangout, open to anyone who signs up — the
+        goal is friendship and community, plain and simple.
+      </p>
+    </section>
+
+    <section class="guidelines-preview">
+      <h2>Community guidelines, in short</h2>
+      <ul>
+        <li>Be kind, respectful, and welcoming — especially to first-timers.</li>
+        <li>This is a community space, not a dating space. Please keep it that way.</li>
+        <li>Meet in public places, look out for one another, and trust your judgment.</li>
+        <li>See something concerning? Use the report button — every report is reviewed.</li>
+      </ul>
+      <a href="#/guidelines" class="link">Read the full community guidelines →</a>
+    </section>
+
+    <section class="final-cta">
+      <h2>Ready to make some plans?</h2>
+      <a href="#/auth?mode=signup" class="btn btn-primary btn-lg">Join Gather free</a>
+    </section>
+  </section>
+
+  <!-- ============================== AUTH =============================== -->
+  <section id="view-auth" class="view">
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab" data-auth-tab="signup">Sign up</button>
+        <button class="auth-tab" data-auth-tab="login">Log in</button>
+      </div>
+
+      <form id="signup-form" class="auth-form">
+        <h2>Create your account</h2>
+        <p class="form-sub">Just enough to get you into the group chat — nothing more.</p>
+        <label>Name
+          <input type="text" name="name" required placeholder="Your first name" maxlength="60" />
+        </label>
+        <label>Email
+          <input type="email" name="email" required placeholder="you@example.com" />
+        </label>
+        <label>Password
+          <input type="password" name="password" required minlength="6" placeholder="At least 6 characters" />
+        </label>
+        <button type="submit" class="btn btn-primary btn-block">Create my account</button>
+        <p class="form-error" data-error hidden></p>
+      </form>
+
+      <form id="login-form" class="auth-form" hidden>
+        <h2>Welcome back</h2>
+        <label>Email
+          <input type="email" name="email" required placeholder="you@example.com" />
+        </label>
+        <label>Password
+          <input type="password" name="password" required placeholder="Your password" />
+        </label>
+        <button type="submit" class="btn btn-primary btn-block">Log in</button>
+        <p class="form-error" data-error hidden></p>
+      </form>
+
+      <p class="auth-footer"><a href="#/landing" class="link">← Back to the home page</a></p>
+    </div>
+  </section>
+
+  <!-- ============================ DISCOVER ============================= -->
+  <section id="view-discover" class="view">
+    <div class="page-header">
+      <h1>Discover events</h1>
+      <a href="#/create" class="btn btn-primary">+ Host an event</a>
+    </div>
+
+    <form id="filters-form" class="filters">
+      <label>Date
+        <input type="date" name="date" />
+      </label>
+      <label>Location
+        <input type="text" name="location" placeholder="Search location…" />
+      </label>
+      <label>Activity type
+        <select name="category">
+          <option value="">All types</option>
+        </select>
+      </label>
+      <button type="button" id="clear-filters" class="btn btn-ghost">Clear</button>
+    </form>
+
+    <div id="events-list" class="events-grid"></div>
+    <p id="events-empty" class="empty-state" hidden>No events match those filters yet — try widening your search, or be the first to host one!</p>
+  </section>
+
+  <!-- ========================== EVENT DETAIL ============================ -->
+  <section id="view-event" class="view">
+    <a href="#/discover" class="link back-link">← Back to Discover</a>
+    <div id="event-detail"></div>
+  </section>
+
+  <!-- ============================= CREATE =============================== -->
+  <section id="view-create" class="view">
+    <h1>Host an event</h1>
+    <p class="page-sub">Pick a suggested plan to start fast, or write your own. Overlapping events at the same place are totally fine — the more the merrier.</p>
+
+    <div id="template-chips" class="template-chips"></div>
+
+    <form id="create-form" class="create-form">
+      <label>Title
+        <input type="text" name="title" required maxlength="80" placeholder="e.g. Saturday Morning Hike" />
+      </label>
+      <label>Suggested plan / description
+        <textarea name="description" required maxlength="600" rows="4" placeholder="What's the plan? Anything people should bring or know?"></textarea>
+      </label>
+      <label>Activity type
+        <select name="category" required></select>
+      </label>
+      <div class="field-row">
+        <label>Date
+          <input type="date" name="event_date" required />
+        </label>
+        <label>Time
+          <input type="time" name="event_time" required />
+        </label>
+      </div>
+      <label>Location / venue name
+        <input type="text" name="location_name" required maxlength="120" placeholder="e.g. Riverside Trailhead" />
+      </label>
+      <label>Capacity (optional)
+        <input type="number" name="capacity" min="1" placeholder="Leave blank for no limit" />
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Create event</button>
+      <p class="form-error" data-error hidden></p>
+    </form>
+  </section>
+
+  <!-- =========================== MY EVENTS =============================== -->
+  <section id="view-my-events" class="view">
+    <h1>My events</h1>
+    <div class="tabs">
+      <button class="tab-btn active" data-my-tab="attending">Attending</button>
+      <button class="tab-btn" data-my-tab="hosting">Hosting</button>
+    </div>
+    <div id="my-events-list" class="events-grid"></div>
+    <p id="my-events-empty" class="empty-state" hidden></p>
+  </section>
+
+  <!-- ============================= PROFILE ================================ -->
+  <section id="view-profile" class="view">
+    <h1>Your profile</h1>
+    <form id="profile-form" class="create-form">
+      <label>Name
+        <input type="text" name="name" required maxlength="60" />
+      </label>
+      <label>Short bio (optional)
+        <textarea name="bio" maxlength="200" rows="3" placeholder="A line or two about you — shown to people you RSVP with."></textarea>
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Save profile</button>
+      <p class="form-success" data-success hidden>Saved!</p>
+    </form>
+  </section>
+
+  <!-- =========================== GUIDELINES =============================== -->
+  <section id="view-guidelines" class="view">
+    <h1>Community guidelines</h1>
+    <p class="page-sub">Short, plain, and non-negotiable.</p>
+
+    <div class="guidelines-body">
+      <h3>🙌 Be kind and welcoming</h3>
+      <p>Everyone here was new once. Greet first-timers, include people standing on the edge of the group, and assume good faith.</p>
+
+      <h3>🙅 This is not a dating space</h3>
+      <p>Gather is for group hangouts and friendship, not romance. There's no matching, no pairing off, and no private messaging — please keep the spirit of the app that way in person too.</p>
+
+      <h3>🛡️ Respect and safety first</h3>
+      <p>Treat every person's boundaries, beliefs, and background with respect. Meet in public places, especially the first time you attend an event, and trust your instincts.</p>
+
+      <h3>🚩 Something feel off? Report it</h3>
+      <p>Every event and profile has a "Report" option. Reports are reviewed — you don't need to handle a concerning situation alone.</p>
+
+      <h3>💬 Keep group chat about the plan</h3>
+      <p>Each event's chat is visible to everyone attending — use it for logistics ("running 5 min late!"), not personal conversations.</p>
+    </div>
+  </section>
+
+</main>
+
+<!-- =============================== REPORT MODAL ================================ -->
+<div id="report-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <button class="modal-close" id="report-close" aria-label="Close">✕</button>
+    <h2>Report a concern</h2>
+    <p class="form-sub">This is reviewed by the Gather team — thank you for looking out for the community.</p>
+    <form id="report-form">
+      <label>What's going on?
+        <select name="reason" required>
+          <option value="">Choose a reason…</option>
+          <option value="inappropriate">Inappropriate behavior</option>
+          <option value="safety">Safety concern</option>
+          <option value="dating">This felt like dating/matchmaking, not a group hangout</option>
+          <option value="spam">Spam or fake event</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label>Details (optional)
+        <textarea name="details" rows="3" maxlength="500" placeholder="Anything that would help us understand what happened."></textarea>
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Submit report</button>
+      <p class="form-success" data-success hidden>Thank you — this has been reported.</p>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="mock-api.js"></script>
+<script src="api.js"></script>
+<script src="supabase-client.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

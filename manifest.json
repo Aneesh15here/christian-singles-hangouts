@@ -1,0 +1,12 @@
+{
+  "name": "Gather — Christian Singles Hangouts",
+  "short_name": "Gather",
+  "description": "Find and host group hangouts with other Christian singles — hikes, coffee, board games, Bible study, and more. Not a dating app.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#fdf8f1",
+  "theme_color": "#c1694f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
