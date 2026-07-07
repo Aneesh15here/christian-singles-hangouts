@@ -81,12 +81,33 @@ It's safe to commit these — the anon key is meant to be public; access
 control is enforced entirely by the Row Level Security policies in
 `schema.sql`, not by keeping this key secret.
 
-### 5. Turn off email confirmation (recommended for quick local testing)
+### 5. Email confirmation (your choice — the app handles either)
 
 By default, Supabase requires users to confirm their email before they can
-log in. For quickly trying this out, go to **Authentication → Providers →
-Email** in your Supabase dashboard and turn off "Confirm email" — or leave
-it on and set up an email provider if you want the real signup experience.
+log in (**Authentication → Sign In / Providers → Email → "Confirm email"**).
+
+- **Leave it ON** (recommended for a real deployment): after signup the app
+  shows a friendly "check your email to confirm" screen, and a
+  login-before-confirmation is routed there too. For this to feel right in
+  production you'll want a real SMTP provider (the built-in Supabase email
+  sender is rate-limited to ~2/hour) and the correct **Site URL** (see the
+  Production notes below), so the confirmation link redirects back to your
+  real app instead of `localhost:3000`.
+- **Turn it OFF** for quick local testing: signups log straight in with no
+  email step.
+
+### Production notes (important before going live)
+
+- **Set the Site URL.** In **Authentication → URL Configuration**, set
+  **Site URL** to wherever the app is actually hosted (e.g. your GitHub
+  Pages / Netlify URL, or `http://localhost:4680` for local dev). It
+  defaults to `http://localhost:3000`, which is where confirmation-email
+  links currently redirect — update it or confirmation links will bounce
+  users to a dead address. Add any other origins you use under **Redirect
+  URLs**.
+- **Configure a custom SMTP sender** under **Authentication → Emails** if
+  you keep email confirmation on, so confirmation emails actually scale
+  past the built-in rate limit.
 
 ### 6. Run it locally
 
@@ -146,49 +167,52 @@ browser (or incognito window) to see it as a second user.
 Every table has Row Level Security enabled; see `schema.sql` for the full
 policy list and reasoning.
 
-## What's tested vs. what isn't (please read before assuming this is live-verified)
+## What's tested
 
-**Tested, end-to-end, in a browser, against the demo-mode backend**
-(`mock-api.js` — a localStorage-backed implementation of the exact same
-API surface used by the real Supabase-backed code):
-- Sign up, log in, log out, and session persistence across reload.
-- Browsing/discovering events and filtering by date, location, category.
-- Creating an event from a suggested-plan template, including two
-  different hosts' events overlapping at the same place/time with no
-  warning or block.
-- RSVPing (with an optional intro line), seeing the attendee list update,
-  and canceling an RSVP.
-- Event group chat, including that user-submitted text (titles,
-  descriptions, chat messages, bios) is HTML-escaped before being
-  rendered — verified directly by submitting a `<img onerror=...>` payload
-  into chat and confirming it rendered as inert text, not executed.
-  Real-time delivery to *other* browser tabs wasn't tested in demo mode
-  (the mock only fans out to listeners in the same tab); the Supabase
-  realtime subscription code path itself is code-reviewed, not executed
-  against a live project.
-- Submitting a report and confirming it's written to storage.
-- Editing and saving a profile.
-- Sharing an event link while logged out, then signing in and landing
-  back on that same event (not just the default Discover page).
-- Mobile layout at 375px width, including a nav-overlap bug found and
-  fixed during this testing pass.
+**Verified end-to-end against a live Supabase project** (real Postgres +
+Auth + Realtime, two separate real user accounts, in a browser):
+- **Signup + profile trigger** — signing up creates a real `auth.users`
+  row and the database trigger auto-creates the matching `profiles` row
+  with the name from signup metadata.
+- **The nested `profiles(...)` embeds work** — both the flagged-risky
+  spots: `events` → `host:profiles(name)` (Discover, event detail, My
+  Events) and `rsvps` → `profiles(name)` (the "who's going" attendee
+  list). Attendee names and intro lines render correctly.
+- **Create event** — persisted to the real `events` table and immediately
+  visible to *other* users (the core "shared data across users"
+  requirement — a second account saw the first account's event in the
+  feed and opened it).
+- **RSVP** — a second user RSVP'd, the attendee list and capacity count
+  ("1 / 10 spots filled") updated, and cancel works.
+- **Group chat over realtime + RLS** — host and an RSVP'd attendee can
+  both read and post; messages arrive live via the Supabase realtime
+  subscription; a non-attendee cannot (enforced by RLS policy).
+- **Report flow + RLS lockdown** — submitting a report succeeds, and a
+  client-side read of the `reports` table returns empty (regular users,
+  including the reporter, cannot read reports back — only an admin via the
+  dashboard/service role can). Both behaviors confirmed live.
+- **Email-confirmation flow** — with Supabase's "Confirm email" enabled,
+  signup shows a "check your email" pending screen, and logging in before
+  confirming routes to that same screen (with a resend option) instead of
+  a raw error.
 
-**Code-reviewed but *not* executed against a live Supabase project**
-(no live credentials were available to this build):
-- The actual SQL in `schema.sql` — table shapes, RLS policies, the
-  signup trigger, and the realtime publication line.
-- `api.js`, the real Supabase-backed implementation of every data
-  operation (auth, events, RSVPs, chat, reports) — written to the same
-  interface as the demo-mode version and exercised logically, but the
-  actual PostgREST queries (especially the nested `profiles(...)` embeds)
-  have not been run against a real database.
-- Supabase Auth email flows (confirmation emails, magic links) and the
-  interaction between RLS policies and real authenticated requests.
+**Bug found and fixed during live testing:** realtime-delivered chat
+messages arrive as the raw table row with no joined profile, so the sender
+initially rendered as "Someone". Fixed with a per-conversation user-id →
+name cache; live messages now show the correct sender name. (This never
+surfaced in demo mode because the mock fanned out a fully-hydrated object.)
 
-**If you connect a real Supabase project**, please sanity-check signup,
-creating an event, and RSVPing as a second user before relying on it —
-and open an issue-style note for yourself if a PostgREST query shape needs
-adjusting (the embed syntax in `api.js` is the most likely spot).
+**Also verified earlier in demo mode** (`mock-api.js`, localStorage): the
+same flows plus XSS-escaping of user text (a `<img onerror=...>` payload
+rendered as inert text), the share-link → login → return-to-event
+redirect, and mobile layout at 375px.
+
+**Not exhaustively tested:** realtime fan-out across two *simultaneously
+open* browsers (verified the subscription delivers within a single client;
+the code path is identical for a second client), and Supabase's
+transactional email at scale (the built-in email sender is rate-limited to
+a couple of messages per hour — fine for testing, but for production you'll
+want to configure a real SMTP provider under Authentication → Emails).
 
 ## Notable assumptions / design decisions
 
