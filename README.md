@@ -1,5 +1,8 @@
 # Gather — Christian Singles Hangouts
 
+**Live at: https://aneesh15here.github.io/christian-singles-hangouts/**
+(GitHub Pages, connected to a live Supabase backend)
+
 A community hangout app for Christian singles: browse and host group
 activities (hikes, coffee, board games, Bible study, potlucks, and more),
 RSVP, see who's going, and chat with the group before you meet up.
