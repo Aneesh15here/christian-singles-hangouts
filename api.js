@@ -15,16 +15,26 @@ window.RealApi = (function () {
   }
 
   async function signUp({ name, email, password }) {
-    const { error } = await sb().auth.signUp({
+    const { data, error } = await sb().auth.signUp({
       email,
       password,
       options: { data: { name } },
     });
-    return { error };
+    if (error) return { error };
+    // If the project requires email confirmation, signUp returns a user but
+    // no session — the caller should show a "check your email" screen rather
+    // than trying to log the person straight in.
+    const needsConfirmation = !data.session;
+    return { error: null, needsConfirmation };
   }
 
   async function signIn({ email, password }) {
     const { error } = await sb().auth.signInWithPassword({ email, password });
+    return { error };
+  }
+
+  async function resendConfirmation(email) {
+    const { error } = await sb().auth.resend({ type: 'signup', email });
     return { error };
   }
 
@@ -206,6 +216,7 @@ window.RealApi = (function () {
     getSession,
     signUp,
     signIn,
+    resendConfirmation,
     signOut,
     getProfile,
     updateProfile,

@@ -117,7 +117,8 @@ window.MockApi = (function () {
     write('profiles', profiles);
     write('session', id);
     notifyAuth();
-    return { error: null };
+    // Demo mode has no email to confirm, so it logs straight in.
+    return { error: null, needsConfirmation: false };
   }
 
   async function signIn({ email, password }) {
@@ -126,6 +127,11 @@ window.MockApi = (function () {
     if (!user) return { error: { message: 'Invalid email or password (demo mode).' } };
     write('session', user.id);
     notifyAuth();
+    return { error: null };
+  }
+
+  async function resendConfirmation() {
+    // No-op in demo mode (no real emails are sent).
     return { error: null };
   }
 
@@ -274,6 +280,7 @@ window.MockApi = (function () {
     getSession,
     signUp,
     signIn,
+    resendConfirmation,
     signOut,
     getProfile,
     updateProfile,

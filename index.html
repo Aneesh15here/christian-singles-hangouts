@@ -144,6 +144,25 @@
     </div>
   </section>
 
+  <!-- ======================= CONFIRM EMAIL PENDING ===================== -->
+  <section id="view-confirm" class="view">
+    <div class="auth-card confirm-card">
+      <div class="confirm-icon">📬</div>
+      <h2>You're almost in!</h2>
+      <p class="confirm-lead">We just sent a confirmation link to<br><strong id="confirm-email">your email</strong>.</p>
+      <p class="form-sub">Tap the link in that email to confirm your address, then come back and log in. It's a quick one-time step that keeps the community safe and welcoming.</p>
+      <ul class="confirm-tips">
+        <li>Can't find it? Check your spam or promotions folder.</li>
+        <li>The link can take a minute or two to arrive.</li>
+      </ul>
+      <a href="#/auth?mode=login" class="btn btn-primary btn-block">I've confirmed — log me in</a>
+      <button id="resend-confirm-btn" class="btn btn-ghost btn-block">Resend the confirmation email</button>
+      <p class="form-success" data-resend-success hidden>Sent! Give it a minute to arrive.</p>
+      <p class="form-error" data-resend-error hidden></p>
+      <p class="auth-footer"><a href="#/landing" class="link">← Back to the home page</a></p>
+    </div>
+  </section>
+
   <!-- ============================ DISCOVER ============================= -->
   <section id="view-discover" class="view">
     <div class="page-header">

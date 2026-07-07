@@ -31,6 +31,7 @@
     session: null,
     profile: null,
     messageUnsub: null,
+    pendingEmail: null,
   };
 
   // ---------------------------------------------------------------- utils
@@ -99,7 +100,7 @@
     document.querySelectorAll('.view').forEach((v) => (v.hidden = true));
     document.querySelectorAll('[data-nav]').forEach((a) => a.classList.remove('active'));
 
-    if (!loggedIn && !['landing', 'auth', 'event', 'guidelines'].includes(path)) {
+    if (!loggedIn && !['landing', 'auth', 'confirm', 'event', 'guidelines'].includes(path)) {
       sessionStorage.setItem('csh_pending_hash', location.hash);
       navigate('auth');
       return;
@@ -113,6 +114,12 @@
       show('view-auth');
       const mode = params.get('mode') === 'login' ? 'login' : 'signup';
       setAuthTab(mode);
+    } else if (path === 'confirm') {
+      show('view-confirm');
+      const emailEl = document.getElementById('confirm-email');
+      emailEl.textContent = state.pendingEmail || 'your email';
+      document.querySelector('#view-confirm [data-resend-success]').hidden = true;
+      document.querySelector('#view-confirm [data-resend-error]').hidden = true;
     } else if (path === 'discover') {
       show('view-discover');
       await renderDiscover();
@@ -160,10 +167,18 @@
     const errEl = form.querySelector('[data-error]');
     errEl.hidden = true;
     const fd = new FormData(form);
-    const { error } = await Api.signUp({ name: fd.get('name').trim(), email: fd.get('email').trim(), password: fd.get('password') });
+    const email = fd.get('email').trim();
+    const { error, needsConfirmation } = await Api.signUp({ name: fd.get('name').trim(), email, password: fd.get('password') });
     if (error) {
-      errEl.textContent = error.message;
+      errEl.textContent = /rate limit/i.test(error.message || '')
+        ? "We're sending a lot of confirmation emails right now — please wait a little while and try signing up again."
+        : error.message;
       errEl.hidden = false;
+      return;
+    }
+    if (needsConfirmation) {
+      state.pendingEmail = email;
+      navigate('confirm');
       return;
     }
     showToast(`Welcome to Gather, ${fd.get('name').trim()}!`);
@@ -176,14 +191,47 @@
     const errEl = form.querySelector('[data-error]');
     errEl.hidden = true;
     const fd = new FormData(form);
-    const { error } = await Api.signIn({ email: fd.get('email').trim(), password: fd.get('password') });
+    const email = fd.get('email').trim();
+    const { error } = await Api.signIn({ email, password: fd.get('password') });
     if (error) {
+      // A not-yet-confirmed account is a normal state, not an error to scold
+      // about — send them to the friendly "check your email" screen instead.
+      if (error.code === 'email_not_confirmed' || /not confirmed|confirm your email/i.test(error.message || '')) {
+        state.pendingEmail = email;
+        navigate('confirm');
+        return;
+      }
       errEl.textContent = error.message;
       errEl.hidden = false;
       return;
     }
     showToast('Welcome back!');
     await afterLogin();
+  });
+
+  document.getElementById('resend-confirm-btn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const card = document.getElementById('view-confirm');
+    const okEl = card.querySelector('[data-resend-success]');
+    const errEl = card.querySelector('[data-resend-error]');
+    okEl.hidden = true;
+    errEl.hidden = true;
+    if (!state.pendingEmail) {
+      errEl.textContent = 'Please sign up or log in first so we know where to send it.';
+      errEl.hidden = false;
+      return;
+    }
+    btn.disabled = true;
+    const { error } = await Api.resendConfirmation(state.pendingEmail);
+    btn.disabled = false;
+    if (error) {
+      errEl.textContent = /rate limit/i.test(error.message || '')
+        ? "We've sent a few emails recently — please wait a little while before trying again, and check your spam folder in the meantime."
+        : (error.message || 'Could not resend right now — please try again shortly.');
+      errEl.hidden = false;
+      return;
+    }
+    okEl.hidden = false;
   });
 
   async function afterLogin() {
@@ -350,7 +398,23 @@
     const { data: messages } = await Api.listMessages(eventId);
     renderChatMessages(box, messages || []);
 
-    state.messageUnsub = Api.subscribeMessages(eventId, (msg) => {
+    // Realtime inserts arrive as the raw row (no joined profile name), so keep
+    // a small user_id -> name cache to label live messages, seeded from the
+    // messages we just loaded and topped up on demand for unseen senders.
+    const nameCache = {};
+    (messages || []).forEach((m) => { if (m.profiles?.name) nameCache[m.user_id] = m.profiles.name; });
+    if (state.session && state.profile?.name) nameCache[state.session.user.id] = state.profile.name;
+
+    state.messageUnsub = Api.subscribeMessages(eventId, async (msg) => {
+      if (!msg.profiles?.name) {
+        let name = nameCache[msg.user_id];
+        if (!name) {
+          const { data } = await Api.getProfile(msg.user_id);
+          name = data?.name;
+          if (name) nameCache[msg.user_id] = name;
+        }
+        msg = { ...msg, profiles: { name: name || 'Someone' } };
+      }
       appendChatMessage(box, msg);
     });
 
