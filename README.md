@@ -66,9 +66,13 @@ solving a real problem here.
 2. Open [`schema.sql`](schema.sql) from this folder, copy its entire
    contents, paste into a new query, and run it.
 3. This creates all tables (`profiles`, `events`, `rsvps`,
-   `event_messages`, `reports`), sets up Row Level Security policies on
-   every table, adds a trigger that auto-creates a profile when someone
-   signs up, and enables realtime for event chat. It's safe to re-run.
+   `event_messages`, `reports`, `notifications`), sets up Row Level
+   Security policies on every table, adds a trigger that auto-creates a
+   profile when someone signs up, and enables realtime for event chat.
+   It's safe to re-run — if you set this app up before the `notifications`
+   table existed, just re-run the updated `schema.sql` once to add it
+   (existing tables/policies are untouched). Until you do, the app simply
+   skips sending edit notifications rather than erroring.
 
 ### 3. Get your project's API keys
 
@@ -313,6 +317,20 @@ surfaced in demo mode because the mock fanned out a fully-hydrated object.)
 same flows plus XSS-escaping of user text (a `<img onerror=...>` payload
 rendered as inert text), the share-link → login → return-to-event
 redirect, and mobile layout at 375px.
+
+**Edit event + notifications** (new): verified in demo mode with two
+seeded accounts — a host editing an event's time and location correctly
+creates an in-app notification for the one RSVP'd attendee (and only for
+the attendee, not the host); the 🔔 badge shows the unread count on the
+attendee's next login; opening the panel shows the change message,
+clears the badge, and clicking a notification navigates to that event.
+Editing a field that isn't date/time/location (e.g. fixing a typo in the
+description) correctly sends no notification. **Not yet re-verified
+against the live Supabase project** in this pass — the code degrades
+gracefully (silently skips notifications) if the live database hasn't
+had the `notifications` migration in `schema.sql` re-run yet, so nothing
+breaks either way, but re-run the schema once you deploy this to confirm
+notifications actually land for your real users.
 
 **Not exhaustively tested:** realtime fan-out across two *simultaneously
 open* browsers (verified the subscription delivers within a single client;
