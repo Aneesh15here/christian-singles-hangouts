@@ -51,6 +51,19 @@ window.RealApi = (function () {
     return { data, error };
   }
 
+  // Recreates a missing profiles row for a logged-in user (the signup
+  // trigger normally makes it, but a manual data cleanup can remove it).
+  async function ensureProfile(session) {
+    const name =
+      session.user.user_metadata?.name || (session.user.email || 'member').split('@')[0];
+    const { data, error } = await sb()
+      .from('profiles')
+      .upsert({ id: session.user.id, name }, { onConflict: 'id' })
+      .select()
+      .single();
+    return { data, error };
+  }
+
   async function updateProfile(userId, { name, bio }) {
     const { error } = await sb()
       .from('profiles')
@@ -111,6 +124,61 @@ window.RealApi = (function () {
       ({ data, error } = await sb().from('events').insert(rest).select().single());
     }
     return { data, error };
+  }
+
+  async function updateEvent(id, payload) {
+    let { data, error } = await sb().from('events').update(payload).eq('id', id).select().single();
+    // Same missing-columns fallback as createEvent for pre-map databases.
+    if (error && /latitude|longitude/i.test(error.message || '')) {
+      const { latitude, longitude, ...rest } = payload;
+      ({ data, error } = await sb().from('events').update(rest).eq('id', id).select().single());
+    }
+    return { data, error };
+  }
+
+  // Missing-table matcher for databases that haven't run the notifications
+  // migration yet — those degrade to "no notifications" rather than errors.
+  function isMissingNotificationsTable(error) {
+    return !!error && /notifications/i.test(error.message || '') && /schema cache|does not exist/i.test(error.message || '');
+  }
+
+  async function notifyAttendees(eventId, recipientIds, message) {
+    if (!recipientIds.length) return { error: null };
+    const rows = recipientIds.map((rid) => ({ event_id: eventId, recipient_id: rid, message }));
+    const { error } = await sb().from('notifications').insert(rows);
+    if (isMissingNotificationsTable(error)) return { error: null, skipped: true };
+    return { error };
+  }
+
+  async function listNotifications(userId) {
+    const { data, error } = await sb()
+      .from('notifications')
+      .select('id, event_id, message, read, created_at')
+      .eq('recipient_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (isMissingNotificationsTable(error)) return { data: [], error: null };
+    return { data, error };
+  }
+
+  async function unreadNotificationCount(userId) {
+    const { count, error } = await sb()
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('recipient_id', userId)
+      .eq('read', false);
+    if (isMissingNotificationsTable(error)) return { count: 0, error: null };
+    return { count: count || 0, error };
+  }
+
+  async function markNotificationsRead(userId) {
+    const { error } = await sb()
+      .from('notifications')
+      .update({ read: true })
+      .eq('recipient_id', userId)
+      .eq('read', false);
+    if (isMissingNotificationsTable(error)) return { error: null };
+    return { error };
   }
 
   async function getCommunityStats() {
@@ -270,10 +338,16 @@ window.RealApi = (function () {
     resendConfirmation,
     signOut,
     getProfile,
+    ensureProfile,
     updateProfile,
     listEvents,
     getEvent,
     createEvent,
+    updateEvent,
+    notifyAttendees,
+    listNotifications,
+    unreadNotificationCount,
+    markNotificationsRead,
     getCommunityStats,
     listEventLocations,
     listAttendees,

@@ -32,6 +32,8 @@
     profile: null,
     messageUnsub: null,
     pendingEmail: null,
+    editingEventId: null,
+    editingSnapshot: null,
   };
 
   // ---------------------------------------------------------------- utils
@@ -129,6 +131,10 @@
       await renderEventDetail(params.get('id') || location.hash.split('/')[2]);
     } else if (path === 'create') {
       show('view-create');
+      setCreateMode();
+    } else if (path === 'edit') {
+      show('view-create');
+      await enterEditMode(fullPath.split('/')[1]);
     } else if (path === 'my-events') {
       show('view-my-events');
       await renderMyEvents();
@@ -146,6 +152,11 @@
 
     const navLink = document.querySelector(`[data-nav="${path}"]`);
     if (navLink) navLink.classList.add('active');
+
+    if (loggedIn) {
+      document.getElementById('notif-panel').hidden = true;
+      refreshNotifBadge(); // fire-and-forget; badge fills in as data arrives
+    }
   }
 
   // event id can be embedded as #/event/<id> — parse that shape specially
@@ -329,7 +340,7 @@
         ${!state.session
           ? `<a href="#/auth?mode=signup" id="login-to-rsvp-btn" class="btn btn-primary">Log in to RSVP</a>`
           : isHost
-            ? `<span class="pill pill-muted">You're hosting this one</span>`
+            ? `<a href="#/edit/${id}" class="btn btn-ghost">✏️ Edit event</a>`
             : myRsvp
               ? `<button id="cancel-rsvp-btn" class="btn btn-ghost">Cancel my RSVP</button>`
               : `<button id="rsvp-btn" class="btn btn-primary" ${isFull ? 'disabled' : ''}>${isFull ? 'Event full' : "I'm in — RSVP"}</button>`
@@ -449,6 +460,54 @@
     box.insertAdjacentHTML('beforeend', chatMessageHtml(m));
     box.scrollTop = box.scrollHeight;
   }
+
+  // ------------------------------------------------------------ notifications
+  async function refreshNotifBadge() {
+    if (!state.session) return;
+    const { count } = await Api.unreadNotificationCount(state.session.user.id);
+    const badge = document.getElementById('notif-badge');
+    badge.textContent = count > 9 ? '9+' : String(count);
+    badge.hidden = !count;
+  }
+
+  function closeNotifPanel() {
+    document.getElementById('notif-panel').hidden = true;
+  }
+
+  function relativeTime(iso) {
+    const mins = Math.round((Date.now() - new Date(iso)) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1440) return `${Math.round(mins / 60)}h ago`;
+    return `${Math.round(mins / 1440)}d ago`;
+  }
+
+  document.getElementById('notif-btn').addEventListener('click', async () => {
+    const panel = document.getElementById('notif-panel');
+    if (!panel.hidden) { panel.hidden = true; return; }
+    panel.hidden = false;
+    const list = document.getElementById('notif-list');
+    list.innerHTML = '<p class="notif-empty">Loading…</p>';
+    const { data: notifications } = await Api.listNotifications(state.session.user.id);
+    if (!notifications || notifications.length === 0) {
+      list.innerHTML = '<p class="notif-empty">Nothing yet — updates about events you\'ve joined will show up here.</p>';
+    } else {
+      list.innerHTML = notifications.map((n) => `
+        <button class="notif-item ${n.read ? '' : 'notif-unread'}" data-event-id="${n.event_id}" type="button">
+          <span class="notif-msg">${escapeHtml(n.message)}</span>
+          <span class="notif-time">${relativeTime(n.created_at)}</span>
+        </button>`).join('');
+      list.querySelectorAll('.notif-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          closeNotifPanel();
+          navigate(`event/${item.dataset.eventId}`);
+        });
+      });
+    }
+    // Opening the panel counts as seeing them.
+    await Api.markNotificationsRead(state.session.user.id);
+    refreshNotifBadge();
+  });
 
   // ---------------------------------------------------------------- feedback
   document.getElementById('feedback-open-btn').addEventListener('click', () => {
@@ -666,6 +725,62 @@
     return null;
   }
 
+  // The Host form does double duty: creating a new event, or (via
+  // #/edit/<id>) updating one the current user already hosts.
+  function setCreateMode() {
+    state.editingEventId = null;
+    state.editingSnapshot = null;
+    document.getElementById('create-heading').textContent = 'Host an event';
+    document.getElementById('create-sub').textContent = 'Pick a suggested plan to start fast, or write your own. Overlapping events at the same place are totally fine — the more the merrier.';
+    document.getElementById('create-submit-btn').textContent = 'Create event';
+    document.getElementById('template-chips').style.display = '';
+    document.getElementById('create-form').reset();
+    document.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+  }
+
+  async function enterEditMode(eventId) {
+    const { data: ev, error } = await Api.getEvent(eventId);
+    if (error || !ev) {
+      showToast("That event couldn't be found.");
+      navigate('my-events');
+      return;
+    }
+    if (!state.session || state.session.user.id !== ev.host_id) {
+      showToast('Only the host can edit this event.');
+      navigate(`event/${eventId}`);
+      return;
+    }
+    state.editingEventId = eventId;
+    // Normalize time to HH:MM — Postgres returns HH:MM:SS, the input wants HH:MM.
+    state.editingSnapshot = {
+      event_date: ev.event_date,
+      event_time: (ev.event_time || '').slice(0, 5),
+      location_name: ev.location_name,
+      title: ev.title,
+    };
+    document.getElementById('create-heading').textContent = 'Edit your event';
+    document.getElementById('create-sub').textContent = "Update the details below — if the date, time, or location changes, everyone who's RSVP'd gets a heads-up in the app.";
+    document.getElementById('create-submit-btn').textContent = 'Save changes';
+    document.getElementById('template-chips').style.display = 'none';
+    const form = document.getElementById('create-form');
+    form.title.value = ev.title;
+    form.description.value = ev.description;
+    form.category.value = ev.category;
+    form.event_date.value = ev.event_date;
+    form.event_time.value = state.editingSnapshot.event_time;
+    form.location_name.value = ev.location_name;
+    form.capacity.value = ev.capacity ?? '';
+  }
+
+  // Only changes attendees actually plan around trigger a notification.
+  function meaningfulChanges(snapshot, payload) {
+    const changes = [];
+    if (payload.event_date !== snapshot.event_date) changes.push(`the date is now ${formatDate(payload.event_date)}`);
+    if (payload.event_time !== snapshot.event_time) changes.push(`the time is now ${formatTime(payload.event_time)}`);
+    if (payload.location_name !== snapshot.location_name) changes.push(`the location is now ${payload.location_name}`);
+    return changes;
+  }
+
   document.getElementById('create-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -673,7 +788,6 @@
     errEl.hidden = true;
     const fd = new FormData(form);
     const payload = {
-      host_id: state.session.user.id,
       title: fd.get('title').trim(),
       description: fd.get('description').trim(),
       category: fd.get('category'),
@@ -682,6 +796,41 @@
       location_name: fd.get('location_name').trim(),
       capacity: fd.get('capacity') ? Number(fd.get('capacity')) : null,
     };
+
+    if (state.editingEventId) {
+      const eventId = state.editingEventId;
+      const snapshot = state.editingSnapshot;
+      // Re-geocode only if the venue actually changed, so an unrelated edit
+      // can't silently wipe or alter existing map coordinates.
+      if (payload.location_name !== snapshot.location_name) {
+        const coords = await geocodeLocation(payload.location_name);
+        if (coords) Object.assign(payload, coords);
+      }
+      const { error } = await Api.updateEvent(eventId, payload);
+      if (error) {
+        errEl.textContent = error.message || 'Could not save changes';
+        errEl.hidden = false;
+        return;
+      }
+      const changes = meaningfulChanges(snapshot, payload);
+      let notified = false;
+      if (changes.length) {
+        const { data: attendees } = await Api.listAttendees(eventId);
+        const recipients = (attendees || [])
+          .map((a) => a.user_id)
+          .filter((uid) => uid !== state.session.user.id);
+        const message = `"${payload.title}" was updated by the host — ${changes.join(', ')}.`;
+        const { error: notifError, skipped } = await Api.notifyAttendees(eventId, recipients, message);
+        if (notifError) console.warn('Could not notify attendees:', notifError.message);
+        notified = recipients.length > 0 && !notifError && !skipped;
+      }
+      showToast(notified ? 'Changes saved — attendees have been notified.' : 'Changes saved.');
+      setCreateMode();
+      navigate(`event/${eventId}`);
+      return;
+    }
+
+    payload.host_id = state.session.user.id;
     // Best-effort geocode of the venue for the community activity map —
     // never blocks event creation if it fails or times out.
     const coords = await geocodeLocation(payload.location_name);
@@ -780,8 +929,24 @@
       state.session = session;
       await setLoggedInChrome(!!session);
       if (session) {
-        const { data } = await Api.getProfile(session.user.id);
+        let { data } = await Api.getProfile(session.user.id);
+        // Self-heal: if the profile row is missing (e.g. deleted during a
+        // data cleanup), recreate it — everything (hosting, RSVPs, chat)
+        // hangs off this row, so a logged-in user must always have one.
+        if (!data && Api.ensureProfile) {
+          ({ data } = await Api.ensureProfile(session));
+        }
         state.profile = data;
+
+        // A direct link to a protected page (e.g. #/edit/<id>) bounces to
+        // auth before the stored session finishes restoring — once it has,
+        // send the person where they were actually headed.
+        const pending = sessionStorage.getItem('csh_pending_hash');
+        if (pending && currentRoute().path === 'auth') {
+          sessionStorage.removeItem('csh_pending_hash');
+          location.hash = pending; // hashchange re-runs the router
+          return;
+        }
       }
       router();
     });

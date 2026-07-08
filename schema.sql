@@ -218,6 +218,41 @@ create policy "Anyone can send feedback"
 -- Intentionally no select/update/delete policy for regular users.
 
 -- ---------------------------------------------------------------------
+-- notifications: in-app notices for attendees when a host changes the
+-- date, time, or location of an event they've RSVP'd to. No email/push —
+-- these surface in the app's notification bell next time the person is in
+-- the app. Recipients read and mark-read their own; only an event's host
+-- can create notifications for that event.
+-- ---------------------------------------------------------------------
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events (id) on delete cascade,
+  recipient_id uuid not null references public.profiles (id) on delete cascade,
+  message text not null,
+  read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists notifications_recipient_idx
+  on public.notifications (recipient_id, read);
+
+alter table public.notifications enable row level security;
+
+create policy "Recipients can view their own notifications"
+  on public.notifications for select
+  using (auth.uid() = recipient_id);
+
+create policy "Recipients can mark their own notifications read"
+  on public.notifications for update
+  using (auth.uid() = recipient_id);
+
+create policy "Hosts can notify attendees of their own events"
+  on public.notifications for insert
+  with check (
+    exists (select 1 from public.events e where e.id = notifications.event_id and e.host_id = auth.uid())
+  );
+
+-- ---------------------------------------------------------------------
 -- Realtime for event group chat (wrapped so re-running this file is safe)
 -- ---------------------------------------------------------------------
 do $$

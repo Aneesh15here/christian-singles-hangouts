@@ -196,6 +196,45 @@ window.MockApi = (function () {
     return { data: event, error: null };
   }
 
+  async function updateEvent(id, payload) {
+    const events = read('events', []);
+    const idx = events.findIndex((e) => e.id === id);
+    if (idx === -1) return { data: null, error: { message: 'Event not found' } };
+    events[idx] = { ...events[idx], ...payload };
+    write('events', events);
+    return { data: events[idx], error: null };
+  }
+
+  async function notifyAttendees(eventId, recipientIds, message) {
+    const notifications = read('notifications', []);
+    recipientIds.forEach((rid) => {
+      notifications.push({ id: uid(), event_id: eventId, recipient_id: rid, message, read: false, created_at: new Date().toISOString() });
+    });
+    write('notifications', notifications);
+    return { error: null };
+  }
+
+  async function listNotifications(userId) {
+    const data = read('notifications', [])
+      .filter((n) => n.recipient_id === userId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 30);
+    return { data, error: null };
+  }
+
+  async function unreadNotificationCount(userId) {
+    const count = read('notifications', []).filter((n) => n.recipient_id === userId && !n.read).length;
+    return { count, error: null };
+  }
+
+  async function markNotificationsRead(userId) {
+    const notifications = read('notifications', []).map((n) =>
+      n.recipient_id === userId ? { ...n, read: true } : n
+    );
+    write('notifications', notifications);
+    return { error: null };
+  }
+
   async function getCommunityStats() {
     const users = read('users', []);
     const events = read('events', []);
@@ -320,6 +359,11 @@ window.MockApi = (function () {
     listEvents,
     getEvent,
     createEvent,
+    updateEvent,
+    notifyAttendees,
+    listNotifications,
+    unreadNotificationCount,
+    markNotificationsRead,
     getCommunityStats,
     listEventLocations,
     listAttendees,

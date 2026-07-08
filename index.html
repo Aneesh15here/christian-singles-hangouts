@@ -25,6 +25,15 @@
       <a href="#/profile" data-nav="profile">Profile</a>
       <a href="#/guidelines" data-nav="guidelines">Guidelines</a>
     </nav>
+    <div class="notif-wrap">
+      <button id="notif-btn" class="notif-btn" type="button" aria-label="Notifications">
+        🔔<span id="notif-badge" class="notif-badge" hidden></span>
+      </button>
+      <div id="notif-panel" class="notif-panel" hidden>
+        <h3>Notifications</h3>
+        <div id="notif-list"></div>
+      </div>
+    </div>
     <button id="logout-btn" class="btn btn-ghost">Log out</button>
   </div>
 </header>
@@ -238,8 +247,8 @@
 
   <!-- ============================= CREATE =============================== -->
   <section id="view-create" class="view">
-    <h1>Host an event</h1>
-    <p class="page-sub">Pick a suggested plan to start fast, or write your own. Overlapping events at the same place are totally fine — the more the merrier.</p>
+    <h1 id="create-heading">Host an event</h1>
+    <p class="page-sub" id="create-sub">Pick a suggested plan to start fast, or write your own. Overlapping events at the same place are totally fine — the more the merrier.</p>
 
     <div id="template-chips" class="template-chips"></div>
 
@@ -267,7 +276,7 @@
       <label>Capacity (optional)
         <input type="number" name="capacity" min="1" placeholder="Leave blank for no limit" />
       </label>
-      <button type="submit" class="btn btn-primary btn-block">Create event</button>
+      <button type="submit" id="create-submit-btn" class="btn btn-primary btn-block">Create event</button>
       <p class="form-error" data-error hidden></p>
     </form>
   </section>

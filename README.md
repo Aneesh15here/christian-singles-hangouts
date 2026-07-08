@@ -24,7 +24,9 @@ Unlike the other two apps in this folder (`aus-trip-weather`,
 `voice-log-organizer`), **this app needs a real backend to be a real,
 shared, multi-user app.** Out of the box it runs in a local **demo mode**
 with sample data stored only in your browser — good for trying out the UI,
-but not shared with anyone else. To make it a real app where one person's
+but not shared with anyone else. (You can also force demo mode at any time
+by adding `?demo=1` to the URL, even with a real backend configured —
+handy for experimenting without touching shared data.) To make it a real app where one person's
 event is visible and joinable by others, you need to connect a free
 Supabase project. See **Setup** below — it takes about 5 minutes.
 
@@ -144,6 +146,15 @@ browser (or incognito window) to see it as a second user.
   potluck, service/volunteering, Bible study, trivia, pickup sports) to
   prefill a title/description/category, or write your own from scratch.
   Set date, time, location, and an optional capacity.
+- **Edit an event**: hosts see an "✏️ Edit event" button on their own
+  event's page — same form as hosting, prefilled. If the **date, time, or
+  location** changes, everyone who's RSVP'd gets an in-app notification;
+  trivial edits (typo fixes in the description, capacity tweaks) don't
+  notify anyone.
+- **Notifications**: a 🔔 bell in the nav shows an unread count and a
+  simple list — currently used for "the host changed the plan" updates on
+  events you've joined. In-app only (no email/push); opening the panel
+  marks them read.
 - **Event detail**: see the full plan, who's going (name + optional
   one-line intro, not contact info), RSVP or cancel, share a one-tap
   link, and chat with the group. Chat is visible only to the host and
@@ -182,6 +193,13 @@ browser (or incognito window) to see it as a second user.
   `reason`, optional `details`, `status`. Insert-only from the client.
 - **`feedback`** — optional `user_id`, optional reply-to `email`, `message`.
   Insert-only from the client, same pattern as `reports`.
+- **`notifications`** — `event_id`, `recipient_id`, `message`, `read`.
+  Created by an event's host when they change the date/time/location of an
+  event with RSVPs; each recipient can only read and mark-read their own.
+  **Databases created before this feature need a migration** — re-run
+  `schema.sql` (idempotent) or just its `notifications` block. Until then
+  the app degrades gracefully: edits still save, the bell shows nothing,
+  and no errors surface.
 
 Every table has Row Level Security enabled; see `schema.sql` for the full
 policy list and reasoning.
