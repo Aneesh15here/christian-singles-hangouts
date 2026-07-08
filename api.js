@@ -210,6 +210,17 @@ window.RealApi = (function () {
     return () => sb().removeChannel(channel);
   }
 
+  // No .select() after the insert — feedback (like reports) has no read
+  // policy for regular users, so asking for the row back would error.
+  async function submitFeedback({ userId, email, message }) {
+    const { error } = await sb().from('feedback').insert({
+      user_id: userId || null,
+      email: email || null,
+      message,
+    });
+    return { error };
+  }
+
   async function submitReport({ reporterId, eventId, reportedUserId, reason, details }) {
     const { error } = await sb().from('reports').insert({
       reporter_id: reporterId,
@@ -272,6 +283,7 @@ window.RealApi = (function () {
     listMessages,
     sendMessage,
     subscribeMessages,
+    submitFeedback,
     submitReport,
     myHostedEvents,
     myAttendingEvents,

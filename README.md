@@ -152,12 +152,18 @@ browser (or incognito window) to see it as a second user.
   reminder banner for anything you're attending in the next 48 hours.
 - **Profile**: name + optional short bio — that's the entire personal data
   footprint.
+- **Map** (`#/map`): a dedicated, larger version of the landing-page
+  activity map, plus events-plotted / distinct-spots / most-active-area
+  stats. Viewable without logging in, same as Guidelines.
 - **Guidelines**: plain-language community guidelines (kindness, respect,
   safety, everyone welcome).
 - **Report**: any event page has a Report button. Reports go straight into
   a `reports` table that only an admin using the Supabase dashboard can
   read (no regular user, including the reporter, can read reports back —
   see the RLS notes in `schema.sql`).
+- **Feedback**: a quiet "Feedback" link in the footer of every page opens a
+  form to send a note to the admin, with a mailto fallback. See the
+  **Feedback / contact admin** section below.
 
 ## Data model
 
@@ -174,6 +180,8 @@ browser (or incognito window) to see it as a second user.
   lets the event's host and RSVP'd attendees read or post.
 - **`reports`** — `reporter_id`, optional `event_id` / `reported_user_id`,
   `reason`, optional `details`, `status`. Insert-only from the client.
+- **`feedback`** — optional `user_id`, optional reply-to `email`, `message`.
+  Insert-only from the client, same pattern as `reports`.
 
 Every table has Row Level Security enabled; see `schema.sql` for the full
 policy list and reasoning.
@@ -184,6 +192,12 @@ The landing page shows live community numbers (members, upcoming events,
 distinct people who RSVP'd or hosted in the last 7 days) queried straight
 from the database, plus a Leaflet/OpenStreetMap map where each circle is a
 venue with events — circle size scales with how many events happen there.
+There's also a dedicated **Map page** (`#/map`, linked from the nav bar and
+from "See the full activity map" on the landing page) with a larger map and
+a few extra stats (total events plotted, distinct spots, most active area).
+It's built from the same per-event coordinates as the landing-page mini
+map — there's no per-member location tracking anywhere in the app, so this
+adds no new privacy surface.
 
 - **Coordinates** come from a best-effort geocode of the venue name via
   OpenStreetMap's free [Nominatim](https://nominatim.org/) API when an
@@ -203,6 +217,44 @@ venue with events — circle size scales with how many events happen there.
   columns and degrades gracefully).
 - Geocoding by venue *name* is approximate — a specific address or
   "Venue, Suburb/City" geocodes much better than a bare venue name.
+
+## Feedback / contact admin
+
+A low-key "Feedback" link sits in the footer on every page (easy to miss
+unless you're looking for it, by design — this isn't a primary nav item).
+It opens a small form (message + optional reply-to email) that anyone, logged
+in or not, can submit. There's also a permanent "email us directly" mailto
+link to `anee.karan@gmail.com` right under the form, since there's no
+email-sending backend — submissions are simply stored in a `feedback` table
+for the admin to read from the Supabase dashboard.
+
+- **New table required.** If your Supabase project was set up before this
+  feature, run just the new section, or simply re-run all of `schema.sql`
+  (it's idempotent):
+
+  ```sql
+  create table if not exists public.feedback (
+    id uuid primary key default gen_random_uuid(),
+    user_id uuid references public.profiles (id) on delete set null,
+    email text,
+    message text not null,
+    created_at timestamptz not null default now()
+  );
+
+  alter table public.feedback enable row level security;
+
+  create policy "Anyone can send feedback"
+    on public.feedback for insert
+    with check (user_id is null or auth.uid() = user_id);
+  ```
+
+  Until that's run, submitting the form shows a friendly inline error
+  pointing at the mailto fallback instead of silently failing.
+- Like `reports`, there's intentionally no select/update/delete policy for
+  regular users — feedback is insert-only from the client and readable only
+  via the Supabase dashboard (or a service-role key).
+- Works in demo mode too: submissions are written to `localStorage` under
+  the `feedback` key, same pattern as every other mock table.
 
 ## What's tested
 

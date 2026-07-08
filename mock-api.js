@@ -286,6 +286,13 @@ window.MockApi = (function () {
     return { error: null };
   }
 
+  async function submitFeedback({ userId, email, message }) {
+    const feedback = read('feedback', []);
+    feedback.push({ id: uid(), user_id: userId || null, email: email || null, message, created_at: new Date().toISOString() });
+    write('feedback', feedback);
+    return { error: null };
+  }
+
   async function myHostedEvents(userId) {
     const events = read('events', []).filter((e) => e.host_id === userId);
     events.sort((a, b) => (a.event_date + a.event_time).localeCompare(b.event_date + b.event_time));
@@ -322,6 +329,7 @@ window.MockApi = (function () {
     listMessages,
     sendMessage,
     subscribeMessages,
+    submitFeedback,
     submitReport,
     myHostedEvents,
     myAttendingEvents,

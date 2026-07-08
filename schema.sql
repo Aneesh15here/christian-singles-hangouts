@@ -196,6 +196,28 @@ create policy "Users can submit reports"
 -- Intentionally no select/update/delete policy for regular users.
 
 -- ---------------------------------------------------------------------
+-- feedback: notes/questions for the admin, sent from the in-app feedback
+-- form (footer link). Insert-only from the client — read via the Supabase
+-- dashboard, like reports. Logged-out visitors can send feedback too, so
+-- user_id is optional; the reply-to email is whatever they choose to give.
+-- ---------------------------------------------------------------------
+create table if not exists public.feedback (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.profiles (id) on delete set null,
+  email text,
+  message text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.feedback enable row level security;
+
+create policy "Anyone can send feedback"
+  on public.feedback for insert
+  with check (user_id is null or auth.uid() = user_id);
+
+-- Intentionally no select/update/delete policy for regular users.
+
+-- ---------------------------------------------------------------------
 -- Realtime for event group chat (wrapped so re-running this file is safe)
 -- ---------------------------------------------------------------------
 do $$

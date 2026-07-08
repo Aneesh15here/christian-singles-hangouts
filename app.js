@@ -100,7 +100,7 @@
     document.querySelectorAll('.view').forEach((v) => (v.hidden = true));
     document.querySelectorAll('[data-nav]').forEach((a) => a.classList.remove('active'));
 
-    if (!loggedIn && !['landing', 'auth', 'confirm', 'event', 'guidelines'].includes(path)) {
+    if (!loggedIn && !['landing', 'auth', 'confirm', 'event', 'guidelines', 'map'].includes(path)) {
       sessionStorage.setItem('csh_pending_hash', location.hash);
       navigate('auth');
       return;
@@ -137,6 +137,9 @@
       await renderProfile();
     } else if (path === 'guidelines') {
       show('view-guidelines');
+    } else if (path === 'map') {
+      show('view-map');
+      renderActivityMapPage();
     } else {
       show('view-landing');
     }
@@ -447,6 +450,43 @@
     box.scrollTop = box.scrollHeight;
   }
 
+  // ---------------------------------------------------------------- feedback
+  document.getElementById('feedback-open-btn').addEventListener('click', () => {
+    const modal = document.getElementById('feedback-modal');
+    const form = document.getElementById('feedback-form');
+    form.reset();
+    // Prefill the reply-to email for logged-in folks; still editable/removable.
+    if (state.session?.user?.email) form.email.value = state.session.user.email;
+    form.querySelector('[data-success]').hidden = true;
+    form.querySelector('[data-error]').hidden = true;
+    modal.hidden = false;
+  });
+  document.getElementById('feedback-close').addEventListener('click', () => {
+    document.getElementById('feedback-modal').hidden = true;
+  });
+  document.getElementById('feedback-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const okEl = form.querySelector('[data-success]');
+    const errEl = form.querySelector('[data-error]');
+    okEl.hidden = true;
+    errEl.hidden = true;
+    const fd = new FormData(form);
+    const { error } = await Api.submitFeedback({
+      userId: state.session?.user?.id || null,
+      email: fd.get('email')?.trim() || null,
+      message: fd.get('message').trim(),
+    });
+    if (error) {
+      errEl.textContent = "That didn't go through just now — mind using the email link below instead?";
+      errEl.hidden = false;
+      return;
+    }
+    form.reset();
+    okEl.hidden = false;
+    setTimeout(() => { document.getElementById('feedback-modal').hidden = true; }, 2000);
+  });
+
   // ------------------------------------------------------------------ report
   let reportContext = {};
   function openReportModal(ctx) {
@@ -501,6 +541,46 @@
   // -------------------------------------------------------- community stats
   let activityMap = null;
   let activityMarkers = [];
+  let activityMapFull = null;
+  let activityMarkersFull = [];
+
+  // Groups events by rounded coordinates so several events at the same spot
+  // become one bigger circle instead of a stack of identical pins.
+  function groupEventLocations(locations) {
+    const groups = {};
+    locations.forEach((loc) => {
+      const key = `${loc.latitude.toFixed(3)},${loc.longitude.toFixed(3)}`;
+      if (!groups[key]) groups[key] = { lat: loc.latitude, lng: loc.longitude, count: 0, names: new Set() };
+      groups[key].count += 1;
+      groups[key].names.add(loc.location_name);
+    });
+    return Object.values(groups);
+  }
+
+  // Draws grouped location circles into a Leaflet map instance, creating it
+  // on first use. Shared by the landing-page mini map and the full map page.
+  function drawActivityMap(map, markers, points) {
+    markers.forEach((m) => m.remove());
+    markers.length = 0;
+    points.forEach((g) => {
+      const marker = L.circleMarker([g.lat, g.lng], {
+        radius: 9 + 5 * Math.sqrt(g.count - 1),
+        color: '#ffffff',
+        weight: 2,
+        fillColor: '#c1694f',
+        fillOpacity: 0.75,
+      }).addTo(map);
+      marker.bindTooltip(
+        `${escapeHtml([...g.names].join(', '))} — ${g.count} event${g.count === 1 ? '' : 's'}`
+      );
+      markers.push(marker);
+    });
+    const bounds = L.latLngBounds(points.map((g) => [g.lat, g.lng]));
+    map.fitBounds(bounds.pad(0.35), { maxZoom: 13 });
+    // The map initializes inside a container that was hidden a moment ago;
+    // Leaflet needs a size recalculation once it's actually visible.
+    setTimeout(() => map.invalidateSize(), 50);
+  }
 
   async function renderCommunityStats() {
     const { data: stats } = await Api.getCommunityStats();
@@ -522,45 +602,48 @@
     mapEl.style.display = '';
     emptyNote.hidden = true;
 
-    // Group events by rounded coordinates so several events at the same spot
-    // become one bigger circle instead of a stack of identical pins.
-    const groups = {};
-    locations.forEach((loc) => {
-      const key = `${loc.latitude.toFixed(3)},${loc.longitude.toFixed(3)}`;
-      if (!groups[key]) groups[key] = { lat: loc.latitude, lng: loc.longitude, count: 0, names: new Set() };
-      groups[key].count += 1;
-      groups[key].names.add(loc.location_name);
-    });
-
     if (!activityMap) {
       activityMap = L.map('activity-map', { scrollWheelZoom: false });
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(activityMap);
     }
-    activityMarkers.forEach((m) => m.remove());
-    activityMarkers = [];
+    drawActivityMap(activityMap, activityMarkers, groupEventLocations(locations));
+  }
 
-    const points = Object.values(groups);
-    points.forEach((g) => {
-      const marker = L.circleMarker([g.lat, g.lng], {
-        radius: 9 + 5 * Math.sqrt(g.count - 1),
-        color: '#ffffff',
-        weight: 2,
-        fillColor: '#c1694f',
-        fillOpacity: 0.75,
-      }).addTo(activityMap);
-      marker.bindTooltip(
-        `${escapeHtml([...g.names].join(', '))} — ${g.count} event${g.count === 1 ? '' : 's'}`
-      );
-      activityMarkers.push(marker);
-    });
+  // Dedicated, larger map page (#/map) showing where community activity is
+  // happening geographically — built from the same event lat/lng used by the
+  // landing-page mini map, not any per-member location data.
+  async function renderActivityMapPage() {
+    const mapEl = document.getElementById('activity-map-full');
+    const emptyNote = document.getElementById('map-full-empty');
+    const { data: locations } = await Api.listEventLocations();
 
-    const bounds = L.latLngBounds(points.map((g) => [g.lat, g.lng]));
-    activityMap.fitBounds(bounds.pad(0.35), { maxZoom: 13 });
-    // The map initializes inside a container that was hidden a moment ago;
-    // Leaflet needs a size recalculation once it's actually visible.
-    setTimeout(() => activityMap.invalidateSize(), 50);
+    const total = locations ? locations.length : 0;
+    document.getElementById('map-stat-events').textContent = total;
+
+    if (!window.L || !locations || locations.length === 0) {
+      mapEl.style.display = 'none';
+      emptyNote.hidden = false;
+      document.getElementById('map-stat-spots').textContent = '0';
+      document.getElementById('map-stat-top').textContent = '–';
+      return;
+    }
+    mapEl.style.display = '';
+    emptyNote.hidden = true;
+
+    const points = groupEventLocations(locations);
+    document.getElementById('map-stat-spots').textContent = points.length;
+    const top = points.reduce((a, b) => (b.count > a.count ? b : a), points[0]);
+    document.getElementById('map-stat-top').textContent = [...top.names][0] || '–';
+
+    if (!activityMapFull) {
+      activityMapFull = L.map('activity-map-full', { scrollWheelZoom: true });
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(activityMapFull);
+    }
+    drawActivityMap(activityMapFull, activityMarkersFull, points);
   }
 
   // Turns a typed venue/place name into rough coordinates using OpenStreetMap's

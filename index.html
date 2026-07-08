@@ -21,6 +21,7 @@
       <a href="#/discover" data-nav="discover">Discover</a>
       <a href="#/create" data-nav="create">Host</a>
       <a href="#/my-events" data-nav="my-events">My Events</a>
+      <a href="#/map" data-nav="map">Map</a>
       <a href="#/profile" data-nav="profile">Profile</a>
       <a href="#/guidelines" data-nav="guidelines">Guidelines</a>
     </nav>
@@ -123,6 +124,7 @@
       <p class="map-caption">Each circle is a spot with upcoming or past events — bigger circles mean more happening there.</p>
       <div id="activity-map" role="img" aria-label="Map of event locations; larger circles indicate more events at that spot"></div>
       <p id="map-empty" class="map-note" hidden>The map fills in as events are created — host one and put your spot on it!</p>
+      <a href="#/map" class="link">See the full activity map →</a>
     </section>
 
     <section class="guidelines-preview">
@@ -319,7 +321,61 @@
     </div>
   </section>
 
+  <!-- =========================== ACTIVITY MAP =============================== -->
+  <section id="view-map" class="view">
+    <div class="page-header">
+      <h1>Where Gather is happening</h1>
+    </div>
+    <p class="page-sub">A look at community activity by location — no personal locations here, just where events have been hosted. Each circle is a venue; bigger circles mean more events.</p>
+
+    <div class="stats-row">
+      <div class="stat-tile">
+        <div class="stat-num" id="map-stat-events">–</div>
+        <div class="stat-label">events plotted</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-num" id="map-stat-spots">–</div>
+        <div class="stat-label">distinct spots</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-num" id="map-stat-top">–</div>
+        <div class="stat-label">most active area</div>
+      </div>
+    </div>
+
+    <div id="activity-map-full" role="img" aria-label="Map of event locations; larger circles indicate more events at that spot"></div>
+    <p id="map-full-empty" class="map-note" hidden>No events on the map yet — host one and be the first pin!</p>
+  </section>
+
 </main>
+
+<footer class="app-footer">
+  <span>Gather · made for showing up</span>
+  <button id="feedback-open-btn" class="footer-link" type="button">Feedback</button>
+</footer>
+
+<!-- ============================== FEEDBACK MODAL =============================== -->
+<div id="feedback-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <button class="modal-close" id="feedback-close" aria-label="Close">✕</button>
+    <h2>Tell us anything</h2>
+    <p class="form-sub">Questions, ideas, something broken, something you loved — it all goes straight to a human.</p>
+    <form id="feedback-form">
+      <label>Your message
+        <textarea name="message" rows="4" maxlength="1000" required placeholder="What's on your mind?"></textarea>
+      </label>
+      <label>Your email (optional — only if you'd like a reply)
+        <input type="email" name="email" placeholder="you@example.com" />
+      </label>
+      <button type="submit" class="btn btn-primary btn-block">Send</button>
+      <p class="form-success" data-success hidden>Thank you — we read every note. 💛</p>
+      <p class="form-error" data-error hidden></p>
+    </form>
+    <p class="feedback-alt">Prefer email? Write to us directly at
+      <a class="link" href="mailto:anee.karan@gmail.com?subject=Gather%20feedback">anee.karan@gmail.com</a>.
+    </p>
+  </div>
+</div>
 
 <!-- =============================== REPORT MODAL ================================ -->
 <div id="report-modal" class="modal-overlay" hidden>
