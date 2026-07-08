@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gather-shell-v3';
+const CACHE_NAME = 'gather-shell-v4';
 const SHELL_FILES = [
   './', './index.html', './style.css', './config.js', './mock-api.js',
   './api.js', './supabase-client.js', './app.js', './manifest.json', './icon.svg',

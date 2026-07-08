@@ -5,9 +5,12 @@
 
 A community hangout app: browse and host group activities (hikes, coffee,
 board games, Bible study, potlucks, and more), RSVP, see who's going, and
-chat with the group before you meet up. It's a Christian community open to
-everyone — any relationship status — and members are encouraged to bring
-friends of any faith or none.
+chat with the group before you meet up. It's a non-denominational Christian
+community open to everyone — any relationship status, any church background
+(Catholic, Protestant, Orthodox, non-denominational, or still exploring) —
+and members are encouraged to bring friends of any faith or none. The
+pitch, in the app's own words: less scrolling, more showing up — the app
+plans the hangout, the good part happens in person.
 
 By design there is no private/direct messaging between individual members —
 the only chat is a group chat scoped to a specific event — and no
