@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Gather — hang out with other Christian singles</title>
-<meta name="description" content="Gather: find and host casual group hangouts with other Christian singles. Not a dating app — a place to build friendships and community." />
+<title>Gather — Christian community hangouts</title>
+<meta name="description" content="Gather: find and host casual group hangouts — hikes, coffee, board games, Bible study, and more. A Christian community open to everyone. Bring your friends." />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="style.css" />
@@ -33,12 +34,12 @@
   <section id="view-landing" class="view">
     <section class="hero">
       <div class="hero-inner">
-        <p class="eyebrow">For Christian singles, minus the swiping</p>
-        <h1>Come hang out. No pressure, no pairing off.</h1>
+        <p class="eyebrow">A Christian community, open to everyone</p>
+        <h1>Come hang out. Find your people.</h1>
         <p class="hero-sub">
-          Gather is where Christian singles find real things to do together —
-          hikes, coffee, board game nights, Bible study, potlucks — hosted by
-          people just like you. Show up, meet people, build friendships.
+          Gather is where people find real things to do together — hikes,
+          coffee, board game nights, Bible study, potlucks — hosted by people
+          just like you. Show up, meet people, build friendships.
         </p>
         <div class="hero-ctas">
           <a href="#/auth?mode=signup" class="btn btn-primary btn-lg">Get started free</a>
@@ -52,7 +53,7 @@
       <div class="value-card">
         <div class="value-icon">👋</div>
         <h3>Always welcoming</h3>
-        <p>Every event here is open to new faces. Show up solo — that's normal, not awkward.</p>
+        <p>Every event here is open to new faces. Show up solo or bring a crew — both are normal here.</p>
       </div>
       <div class="value-card">
         <div class="value-icon">🗓️</div>
@@ -60,9 +61,9 @@
         <p>Hikes, trivia nights, potlucks, service projects — hosted by everyday members of the community, not an algorithm.</p>
       </div>
       <div class="value-card">
-        <div class="value-icon">🙅</div>
-        <h3>Not a dating app</h3>
-        <p>No swiping, no "who liked you," no matching. Just group hangouts and honest community.</p>
+        <div class="value-icon">🫶</div>
+        <h3>Bring anyone</h3>
+        <p>Friends of any faith — or none at all — are always welcome. If they'd enjoy the hangout, they belong.</p>
       </div>
     </section>
 
@@ -76,22 +77,45 @@
     </section>
 
     <section class="about-section" id="about">
-      <h2>This is not a dating app</h2>
+      <h2>Everyone's welcome here</h2>
       <p>
-        Gather exists for one reason: to make it easy for Christian singles to
-        spend time together doing something, without the pressure of romantic
-        matchmaking. There's no swiping, no "likes," no couple-pairing, and no
-        one-on-one private messaging between members anywhere in this app.
+        Gather is a Christian community built around one simple idea: it's
+        easier to make real friends when you're doing something together.
+        Single, married, somewhere in between — everyone is welcome. And
+        bring your friends along, whatever they believe or don't: if they'd
+        enjoy a hike, a potluck, or a trivia night, there's a seat for them.
         Every event is a group hangout, open to anyone who signs up — the
         goal is friendship and community, plain and simple.
       </p>
+    </section>
+
+    <section class="community-stats" id="community">
+      <h2>A growing community</h2>
+      <div class="stats-row">
+        <div class="stat-tile">
+          <div class="stat-num" id="stat-members">–</div>
+          <div class="stat-label">members</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-num" id="stat-upcoming">–</div>
+          <div class="stat-label">upcoming events</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-num" id="stat-active">–</div>
+          <div class="stat-label">active this week</div>
+        </div>
+      </div>
+      <h3 class="map-heading">Where we're gathering</h3>
+      <p class="map-caption">Each circle is a spot with upcoming or past events — bigger circles mean more happening there.</p>
+      <div id="activity-map" role="img" aria-label="Map of event locations; larger circles indicate more events at that spot"></div>
+      <p id="map-empty" class="map-note" hidden>The map fills in as events are created — host one and put your spot on it!</p>
     </section>
 
     <section class="guidelines-preview">
       <h2>Community guidelines, in short</h2>
       <ul>
         <li>Be kind, respectful, and welcoming — especially to first-timers.</li>
-        <li>This is a community space, not a dating space. Please keep it that way.</li>
+        <li>Bring friends — any faith or none. Everyone who wants to hang out is welcome.</li>
         <li>Meet in public places, look out for one another, and trust your judgment.</li>
         <li>See something concerning? Use the report button — every report is reviewed.</li>
       </ul>
@@ -266,8 +290,8 @@
       <h3>🙌 Be kind and welcoming</h3>
       <p>Everyone here was new once. Greet first-timers, include people standing on the edge of the group, and assume good faith.</p>
 
-      <h3>🙅 This is not a dating space</h3>
-      <p>Gather is for group hangouts and friendship, not romance. There's no matching, no pairing off, and no private messaging — please keep the spirit of the app that way in person too.</p>
+      <h3>🫶 Everyone's welcome</h3>
+      <p>Gather is open to all — any relationship status, and friends from any background or belief. If someone would enjoy the hangout, they belong here. Make room for newcomers and help them feel at home.</p>
 
       <h3>🛡️ Respect and safety first</h3>
       <p>Treat every person's boundaries, beliefs, and background with respect. Meet in public places, especially the first time you attend an event, and trust your instincts.</p>
@@ -294,7 +318,6 @@
           <option value="">Choose a reason…</option>
           <option value="inappropriate">Inappropriate behavior</option>
           <option value="safety">Safety concern</option>
-          <option value="dating">This felt like dating/matchmaking, not a group hangout</option>
           <option value="spam">Spam or fake event</option>
           <option value="other">Other</option>
         </select>
@@ -309,6 +332,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="config.js"></script>
 <script src="mock-api.js"></script>
 <script src="api.js"></script>

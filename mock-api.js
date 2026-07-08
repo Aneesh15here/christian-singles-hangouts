@@ -26,7 +26,8 @@ window.MockApi = (function () {
   }
 
   function seedIfNeeded() {
-    if (read('seeded', false)) return;
+    // v2: seed events carry map coordinates; re-seed older demo data.
+    if (read('seeded_v2', false)) return;
 
     const hostA = { id: uid(), email: 'maria@example.com', password: 'demo', name: 'Maria', bio: 'Loves board games and hiking.' };
     const hostB = { id: uid(), email: 'james@example.com', password: 'demo', name: 'James', bio: 'Makes too much coffee, shares it gladly.' };
@@ -48,25 +49,25 @@ window.MockApi = (function () {
         id: uid(), host_id: hostA.id, title: 'Saturday Morning Hike',
         description: 'Easy 5km loop trail, coffee after at the trailhead cafe. All fitness levels welcome!',
         category: 'outdoors', event_date: inDays(2), event_time: '08:00',
-        location_name: 'Riverside Trailhead', capacity: 12, created_at: new Date().toISOString(),
+        location_name: 'Riverside Trailhead', latitude: -27.4816, longitude: 153.0389, capacity: 12, created_at: new Date().toISOString(),
       },
       {
         id: uid(), host_id: hostB.id, title: 'Coffee & Conversation',
         description: 'Low-key coffee meetup, come as you are. Great for first-timers.',
         category: 'coffee', event_date: inDays(1), event_time: '17:30',
-        location_name: 'Grounded Coffee House', capacity: null, created_at: new Date().toISOString(),
+        location_name: 'Grounded Coffee House', latitude: -27.4679, longitude: 153.0281, capacity: null, created_at: new Date().toISOString(),
       },
       {
         id: uid(), host_id: hostA.id, title: 'Board Game Night',
         description: 'Bringing Catan, Ticket to Ride, and a few party games. Bring a friend!',
         category: 'games', event_date: inDays(1), event_time: '18:30',
-        location_name: 'Grounded Coffee House', capacity: 10, created_at: new Date().toISOString(),
+        location_name: 'Grounded Coffee House', latitude: -27.4679, longitude: 153.0281, capacity: 10, created_at: new Date().toISOString(),
       },
       {
         id: uid(), host_id: hostB.id, title: 'Bible Study: Book of James',
         description: 'Working through James chapter by chapter. New folks always welcome, no prep needed.',
         category: 'bible-study', event_date: inDays(4), event_time: '19:00',
-        location_name: 'Community Room, Main St Church', capacity: 20, created_at: new Date().toISOString(),
+        location_name: 'Community Room, Main St Church', latitude: -27.5013, longitude: 153.0104, capacity: 20, created_at: new Date().toISOString(),
       },
     ];
     write('events', events);
@@ -76,7 +77,7 @@ window.MockApi = (function () {
     write('messages', [
       { id: uid(), event_id: events[0].id, user_id: hostA.id, body: 'Looking forward to it! Meet at the main sign.', created_at: new Date().toISOString() },
     ]);
-    write('seeded', true);
+    write('seeded_v2', true);
   }
   seedIfNeeded();
 
@@ -195,6 +196,31 @@ window.MockApi = (function () {
     return { data: event, error: null };
   }
 
+  async function getCommunityStats() {
+    const users = read('users', []);
+    const events = read('events', []);
+    const rsvps = read('rsvps', []);
+    const today = new Date().toISOString().slice(0, 10);
+    const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString();
+    const active = new Set([
+      ...rsvps.filter((r) => r.created_at >= weekAgo).map((r) => r.user_id),
+      ...events.filter((e) => e.created_at >= weekAgo).map((e) => e.host_id),
+    ]).size;
+    return {
+      data: {
+        members: users.length,
+        upcoming: events.filter((e) => e.event_date >= today).length,
+        activeThisWeek: active,
+      },
+      error: null,
+    };
+  }
+
+  async function listEventLocations() {
+    const events = read('events', []).filter((e) => e.latitude != null && e.longitude != null);
+    return { data: events.map((e) => ({ location_name: e.location_name, latitude: e.latitude, longitude: e.longitude })), error: null };
+  }
+
   async function listAttendees(eventId) {
     const rsvps = read('rsvps', []).filter((r) => r.event_id === eventId);
     const profiles = read('profiles', {});
@@ -287,6 +313,8 @@ window.MockApi = (function () {
     listEvents,
     getEvent,
     createEvent,
+    getCommunityStats,
+    listEventLocations,
     listAttendees,
     getMyRsvp,
     rsvp,

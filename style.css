@@ -157,6 +157,25 @@ main { max-width: 960px; margin: 0 auto; padding: 0 20px 80px; }
 
 .final-cta { text-align: center; padding: 60px 20px; }
 
+/* ------------------------------------------------------ community stats */
+.community-stats {
+  max-width: 700px;
+  margin: 20px auto;
+  padding: 32px;
+  background: var(--paper);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.stats-row { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin: 24px 0 8px; }
+.stat-tile { background: var(--cream); border-radius: var(--radius); padding: 18px 28px; min-width: 130px; }
+.stat-num { font-size: 34px; font-weight: 800; color: var(--ink); line-height: 1.1; }
+.stat-label { font-size: 13px; color: var(--ink-soft); font-weight: 600; margin-top: 4px; }
+.map-heading { margin-top: 28px; }
+.map-caption { font-size: 13px; margin-bottom: 12px; }
+#activity-map { height: 320px; border-radius: var(--radius); overflow: hidden; }
+.map-note { font-size: 14px; color: var(--ink-soft); background: var(--cream); border-radius: var(--radius); padding: 24px; }
+
 /* ----------------------------------------------------------------- auth */
 .auth-card {
   max-width: 420px;

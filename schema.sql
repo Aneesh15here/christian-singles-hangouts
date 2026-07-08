@@ -1,4 +1,4 @@
--- Christian Singles Hangouts — database schema for Supabase (Postgres)
+-- Gather (Christian community hangouts) — database schema for Supabase (Postgres)
 --
 -- How to use: open your Supabase project's SQL Editor and run this whole
 -- file once. It creates all tables, row-level security (RLS) policies,
@@ -75,9 +75,17 @@ create table if not exists public.events (
   event_date date not null,
   event_time time not null,
   location_name text not null,
+  -- Optional coordinates for the community activity map, geocoded from
+  -- location_name at creation time (best-effort; null if geocoding fails).
+  latitude double precision,
+  longitude double precision,
   capacity int,
   created_at timestamptz not null default now()
 );
+
+-- For databases created before the activity map existed (safe to re-run).
+alter table public.events add column if not exists latitude double precision;
+alter table public.events add column if not exists longitude double precision;
 
 create index if not exists events_event_date_idx on public.events (event_date);
 create index if not exists events_category_idx on public.events (category);

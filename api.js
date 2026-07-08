@@ -103,8 +103,48 @@ window.RealApi = (function () {
   }
 
   async function createEvent(payload) {
-    const { data, error } = await sb().from('events').insert(payload).select().single();
+    let { data, error } = await sb().from('events').insert(payload).select().single();
+    // If the database predates the activity map (no latitude/longitude
+    // columns yet), retry without coordinates rather than failing the event.
+    if (error && /latitude|longitude/i.test(error.message || '')) {
+      const { latitude, longitude, ...rest } = payload;
+      ({ data, error } = await sb().from('events').insert(rest).select().single());
+    }
     return { data, error };
+  }
+
+  async function getCommunityStats() {
+    const today = new Date().toISOString().slice(0, 10);
+    const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString();
+    const [membersRes, upcomingRes, rsvpRes, hostRes] = await Promise.all([
+      sb().from('profiles').select('*', { count: 'exact', head: true }),
+      sb().from('events').select('*', { count: 'exact', head: true }).gte('event_date', today),
+      sb().from('rsvps').select('user_id').gte('created_at', weekAgo),
+      sb().from('events').select('host_id').gte('created_at', weekAgo),
+    ]);
+    const active = new Set([
+      ...((rsvpRes.data || []).map((r) => r.user_id)),
+      ...((hostRes.data || []).map((e) => e.host_id)),
+    ]).size;
+    return {
+      data: {
+        members: membersRes.count || 0,
+        upcoming: upcomingRes.count || 0,
+        activeThisWeek: active,
+      },
+      error: null,
+    };
+  }
+
+  async function listEventLocations() {
+    const { data, error } = await sb()
+      .from('events')
+      .select('location_name, latitude, longitude');
+    // Databases that haven't run the coordinate migration yet just show an
+    // empty map, not an error.
+    if (error && /latitude|longitude/i.test(error.message || '')) return { data: [], error: null };
+    if (error) return { data: null, error };
+    return { data: (data || []).filter((e) => e.latitude != null && e.longitude != null), error: null };
   }
 
   async function listAttendees(eventId) {
@@ -223,6 +263,8 @@ window.RealApi = (function () {
     listEvents,
     getEvent,
     createEvent,
+    getCommunityStats,
+    listEventLocations,
     listAttendees,
     getMyRsvp,
     rsvp,

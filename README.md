@@ -1,17 +1,19 @@
-# Gather — Christian Singles Hangouts
+# Gather — Christian Community Hangouts
 
 **Live at: https://aneesh15here.github.io/christian-singles-hangouts/**
 (GitHub Pages, connected to a live Supabase backend)
 
-A community hangout app for Christian singles: browse and host group
-activities (hikes, coffee, board games, Bible study, potlucks, and more),
-RSVP, see who's going, and chat with the group before you meet up.
+A community hangout app: browse and host group activities (hikes, coffee,
+board games, Bible study, potlucks, and more), RSVP, see who's going, and
+chat with the group before you meet up. It's a Christian community open to
+everyone — any relationship status — and members are encouraged to bring
+friends of any faith or none.
 
-**This is explicitly not a dating app.** There's no swiping, no "who liked
-you," no matching algorithm, and no couple-pairing anywhere in the product.
-There is also no private/direct messaging between individual members —
-the only chat is a group chat scoped to a specific event. The app's own
-copy (see the landing page and the Guidelines page) says this plainly.
+By design there is no private/direct messaging between individual members —
+the only chat is a group chat scoped to a specific event — and no
+swiping/matching mechanics of any kind. (The repo is named
+`christian-singles-hangouts` for historical reasons; the app itself is
+simply "Gather" and is not singles-specific.)
 
 ## ⚠️ Setup required before this app works
 
@@ -128,8 +130,9 @@ browser (or incognito window) to see it as a second user.
 ## Using it
 
 - **Landing page** sells the idea before asking for anything — community,
-  low-pressure hangouts, explicitly *not* a dating space — then Sign up /
-  Log in.
+  low-pressure hangouts, bring-your-friends warmth — plus live community
+  stats (member count, upcoming events, active-this-week) and an activity
+  map showing where events are concentrated. Then Sign up / Log in.
 - **Discover**: browse upcoming events, filter by date, location, or
   activity type. Multiple hosts can run different events at the same
   place and overlapping times — that's intentional, not a conflict the
@@ -147,7 +150,7 @@ browser (or incognito window) to see it as a second user.
 - **Profile**: name + optional short bio — that's the entire personal data
   footprint.
 - **Guidelines**: plain-language community guidelines (kindness, respect,
-  safety, and a reminder that this isn't a dating space).
+  safety, everyone welcome).
 - **Report**: any event page has a Report button. Reports go straight into
   a `reports` table that only an admin using the Supabase dashboard can
   read (no regular user, including the reporter, can read reports back —
@@ -158,8 +161,10 @@ browser (or incognito window) to see it as a second user.
 - **`profiles`** — one row per user (`id` = `auth.users.id`), `name`,
   optional `bio`. Auto-created by a trigger on signup.
 - **`events`** — `host_id`, `title`, `description`, `category`,
-  `event_date`, `event_time`, `location_name`, optional `capacity`.
-  Nothing prevents two events at the same place/time — that's deliberate.
+  `event_date`, `event_time`, `location_name`, optional `latitude`/
+  `longitude` (geocoded from the location name at creation, for the
+  activity map), optional `capacity`. Nothing prevents two events at the
+  same place/time — that's deliberate.
 - **`rsvps`** — links a `user_id` to an `event_id`, with an optional
   one-line `intro_line`. Unique per (event, user).
 - **`event_messages`** — group chat scoped to one `event_id`. RLS only
@@ -169,6 +174,32 @@ browser (or incognito window) to see it as a second user.
 
 Every table has Row Level Security enabled; see `schema.sql` for the full
 policy list and reasoning.
+
+## Community stats & activity map
+
+The landing page shows live community numbers (members, upcoming events,
+distinct people who RSVP'd or hosted in the last 7 days) queried straight
+from the database, plus a Leaflet/OpenStreetMap map where each circle is a
+venue with events — circle size scales with how many events happen there.
+
+- **Coordinates** come from a best-effort geocode of the venue name via
+  OpenStreetMap's free [Nominatim](https://nominatim.org/) API when an
+  event is created. If geocoding fails or times out (~4s), the event is
+  simply created without coordinates and doesn't appear on the map —
+  creation never blocks on the map.
+- **Existing databases** created before this feature need two columns
+  added — either re-run `schema.sql` (it's idempotent) or run just:
+
+  ```sql
+  alter table public.events add column if not exists latitude double precision;
+  alter table public.events add column if not exists longitude double precision;
+  ```
+
+  Until that's run, the app works normally and the map shows a friendly
+  "fills in as events are created" note (the client detects the missing
+  columns and degrades gracefully).
+- Geocoding by venue *name* is approximate — a specific address or
+  "Venue, Suburb/City" geocodes much better than a bare venue name.
 
 ## What's tested
 

@@ -110,6 +110,7 @@
 
     if (path === 'landing') {
       show('view-landing');
+      renderCommunityStats(); // async, fills in as data arrives
     } else if (path === 'auth') {
       show('view-auth');
       const mode = params.get('mode') === 'login' ? 'login' : 'signup';
@@ -497,6 +498,91 @@
     templateChips.appendChild(chip);
   });
 
+  // -------------------------------------------------------- community stats
+  let activityMap = null;
+  let activityMarkers = [];
+
+  async function renderCommunityStats() {
+    const { data: stats } = await Api.getCommunityStats();
+    if (stats) {
+      document.getElementById('stat-members').textContent = stats.members;
+      document.getElementById('stat-upcoming').textContent = stats.upcoming;
+      document.getElementById('stat-active').textContent = stats.activeThisWeek;
+    }
+
+    const mapEl = document.getElementById('activity-map');
+    const emptyNote = document.getElementById('map-empty');
+    const { data: locations } = await Api.listEventLocations();
+
+    if (!window.L || !locations || locations.length === 0) {
+      mapEl.style.display = 'none';
+      emptyNote.hidden = false;
+      return;
+    }
+    mapEl.style.display = '';
+    emptyNote.hidden = true;
+
+    // Group events by rounded coordinates so several events at the same spot
+    // become one bigger circle instead of a stack of identical pins.
+    const groups = {};
+    locations.forEach((loc) => {
+      const key = `${loc.latitude.toFixed(3)},${loc.longitude.toFixed(3)}`;
+      if (!groups[key]) groups[key] = { lat: loc.latitude, lng: loc.longitude, count: 0, names: new Set() };
+      groups[key].count += 1;
+      groups[key].names.add(loc.location_name);
+    });
+
+    if (!activityMap) {
+      activityMap = L.map('activity-map', { scrollWheelZoom: false });
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(activityMap);
+    }
+    activityMarkers.forEach((m) => m.remove());
+    activityMarkers = [];
+
+    const points = Object.values(groups);
+    points.forEach((g) => {
+      const marker = L.circleMarker([g.lat, g.lng], {
+        radius: 9 + 5 * Math.sqrt(g.count - 1),
+        color: '#ffffff',
+        weight: 2,
+        fillColor: '#c1694f',
+        fillOpacity: 0.75,
+      }).addTo(activityMap);
+      marker.bindTooltip(
+        `${escapeHtml([...g.names].join(', '))} — ${g.count} event${g.count === 1 ? '' : 's'}`
+      );
+      activityMarkers.push(marker);
+    });
+
+    const bounds = L.latLngBounds(points.map((g) => [g.lat, g.lng]));
+    activityMap.fitBounds(bounds.pad(0.35), { maxZoom: 13 });
+    // The map initializes inside a container that was hidden a moment ago;
+    // Leaflet needs a size recalculation once it's actually visible.
+    setTimeout(() => activityMap.invalidateSize(), 50);
+  }
+
+  // Turns a typed venue/place name into rough coordinates using OpenStreetMap's
+  // Nominatim geocoder. Returns null on any failure — the map is a bonus, not a
+  // requirement, so event creation must never hinge on it.
+  async function geocodeLocation(query) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 4000);
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`,
+        { signal: ctrl.signal, headers: { Accept: 'application/json' } }
+      );
+      clearTimeout(timer);
+      const results = await res.json();
+      if (Array.isArray(results) && results[0]) {
+        return { latitude: Number(results[0].lat), longitude: Number(results[0].lon) };
+      }
+    } catch {}
+    return null;
+  }
+
   document.getElementById('create-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
@@ -513,6 +599,10 @@
       location_name: fd.get('location_name').trim(),
       capacity: fd.get('capacity') ? Number(fd.get('capacity')) : null,
     };
+    // Best-effort geocode of the venue for the community activity map —
+    // never blocks event creation if it fails or times out.
+    const coords = await geocodeLocation(payload.location_name);
+    if (coords) Object.assign(payload, coords);
     const { data, error } = await Api.createEvent(payload);
     if (error) {
       errEl.textContent = error.message || 'Could not create event';
