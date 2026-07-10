@@ -69,10 +69,15 @@ solving a real problem here.
    `event_messages`, `reports`, `notifications`), sets up Row Level
    Security policies on every table, adds a trigger that auto-creates a
    profile when someone signs up, and enables realtime for event chat.
-   It's safe to re-run — if you set this app up before the `notifications`
-   table existed, just re-run the updated `schema.sql` once to add it
-   (existing tables/policies are untouched). Until you do, the app simply
-   skips sending edit notifications rather than erroring.
+   This is for a **brand-new** Supabase project only — the `create policy`
+   statements aren't guarded, so running the full file against a project
+   that already has these tables will error on the first policy it tries
+   to recreate. If you set this app up before the `notifications` table
+   existed, don't re-run the whole file — just run its `notifications`
+   block (the `create table`, its index, and its three `create policy`
+   statements) on its own; that part is additive and won't conflict with
+   anything. Until you do, the app simply skips sending edit notifications
+   rather than erroring.
 
 ### 3. Get your project's API keys
 
@@ -200,10 +205,11 @@ browser (or incognito window) to see it as a second user.
 - **`notifications`** — `event_id`, `recipient_id`, `message`, `read`.
   Created by an event's host when they change the date/time/location of an
   event with RSVPs; each recipient can only read and mark-read their own.
-  **Databases created before this feature need a migration** — re-run
-  `schema.sql` (idempotent) or just its `notifications` block. Until then
-  the app degrades gracefully: edits still save, the bell shows nothing,
-  and no errors surface.
+  **Databases created before this feature need a migration** — run just
+  the `notifications` block from `schema.sql` (don't re-run the whole
+  file; its unguarded `create policy` statements will error against
+  tables that already exist). Until then the app degrades gracefully:
+  edits still save, the bell shows nothing, and no errors surface.
 
 Every table has Row Level Security enabled; see `schema.sql` for the full
 policy list and reasoning.
@@ -227,7 +233,9 @@ adds no new privacy surface.
   simply created without coordinates and doesn't appear on the map —
   creation never blocks on the map.
 - **Existing databases** created before this feature need two columns
-  added — either re-run `schema.sql` (it's idempotent) or run just:
+  added — run just (re-running the whole `schema.sql` file against an
+  existing project will error on its unguarded `create policy`
+  statements):
 
   ```sql
   alter table public.events add column if not exists latitude double precision;
@@ -251,8 +259,9 @@ email-sending backend — submissions are simply stored in a `feedback` table
 for the admin to read from the Supabase dashboard.
 
 - **New table required.** If your Supabase project was set up before this
-  feature, run just the new section, or simply re-run all of `schema.sql`
-  (it's idempotent):
+  feature, run just the new section below (not the whole `schema.sql` —
+  its unguarded `create policy` statements will error against tables that
+  already exist):
 
   ```sql
   create table if not exists public.feedback (
