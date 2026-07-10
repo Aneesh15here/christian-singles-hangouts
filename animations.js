@@ -16,7 +16,7 @@
   var REVEAL_SELECTOR = [
     '.value-card', '.steps li', '.about-section', '.community-stats',
     '.guidelines-preview', '.final-cta', '.event-card', '.stat-tile',
-    '.attendee', '.how-it-works'
+    '.attendee', '.how-it-works', '.scripture-verse'
   ].join(',');
 
   var io = null;

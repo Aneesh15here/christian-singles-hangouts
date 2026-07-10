@@ -111,6 +111,55 @@ main { max-width: 960px; margin: 0 auto; padding: 0 20px 80px; }
 .hero-ctas { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin: 28px 0 10px; }
 .hero-note { font-size: 13px; color: var(--ink-soft); }
 
+/* ------------------------------------------------------- scripture verse */
+.scripture-verse {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 8px 20px 48px;
+  text-align: center;
+}
+.scripture-verse blockquote {
+  margin: 0;
+  padding: 32px 28px;
+  background: var(--paper);
+  border-radius: var(--radius);
+  border-left: 4px solid var(--terracotta);
+  box-shadow: var(--shadow);
+  position: relative;
+}
+.scripture-verse blockquote::before {
+  content: '“';
+  position: absolute;
+  top: -6px;
+  left: 20px;
+  font-size: 64px;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--terracotta);
+  opacity: 0.25;
+  line-height: 1;
+}
+.scripture-verse p {
+  margin: 0 0 12px;
+  font-size: 19px;
+  font-style: italic;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.scripture-verse cite {
+  display: block;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--sage-dark);
+  font-size: 14px;
+}
+.scripture-verse .verse-version { font-weight: 600; color: var(--ink-soft); }
+.scripture-copyright {
+  margin: 14px 0 0;
+  font-size: 11px;
+  color: var(--ink-soft);
+  opacity: 0.8;
+}
+
 .value-props {
   max-width: 960px;
   margin: 0 auto;
