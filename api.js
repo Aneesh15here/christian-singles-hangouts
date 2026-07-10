@@ -43,11 +43,17 @@ window.RealApi = (function () {
   }
 
   async function getProfile(userId) {
-    const { data, error } = await sb()
+    let { data, error } = await sb()
       .from('profiles')
-      .select('id, name, bio')
+      .select('id, name, bio, is_admin')
       .eq('id', userId)
       .single();
+    // Databases that haven't run the admin migration yet just get is_admin
+    // treated as false, rather than the whole profile load failing.
+    if (error && /is_admin/i.test(error.message || '')) {
+      ({ data, error } = await sb().from('profiles').select('id, name, bio').eq('id', userId).single());
+      if (data) data.is_admin = false;
+    }
     return { data, error };
   }
 
@@ -310,6 +316,65 @@ window.RealApi = (function () {
     return events.map((e) => ({ ...e, attendee_count: counts[e.id] || 0 }));
   }
 
+  // ------------------------------------------------------------------ admin
+  // All of these rely on RLS: a caller whose profile isn't is_admin gets
+  // empty results (or a policy-denied error), never another member's data.
+
+  async function adminListMembers() {
+    const { data, error } = await sb().rpc('admin_list_members');
+    return { data, error };
+  }
+
+  async function adminListEvents() {
+    const { data, error } = await sb()
+      .from('events')
+      .select('*, host:profiles(name)')
+      .order('event_date', { ascending: false })
+      .order('event_time', { ascending: false });
+    if (error || !data) return { data, error };
+    return { data: await withAttendeeCounts(data), error: null };
+  }
+
+  async function adminListReports() {
+    const { data: reports, error } = await sb()
+      .from('reports')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error || !reports || reports.length === 0) return { data: reports || [], error };
+
+    const profileIds = [...new Set(reports.flatMap((r) => [r.reporter_id, r.reported_user_id]).filter(Boolean))];
+    const eventIds = [...new Set(reports.map((r) => r.event_id).filter(Boolean))];
+    const [{ data: profiles }, { data: events }] = await Promise.all([
+      profileIds.length ? sb().from('profiles').select('id, name').in('id', profileIds) : Promise.resolve({ data: [] }),
+      eventIds.length ? sb().from('events').select('id, title').in('id', eventIds) : Promise.resolve({ data: [] }),
+    ]);
+    const nameById = Object.fromEntries((profiles || []).map((p) => [p.id, p.name]));
+    const titleById = Object.fromEntries((events || []).map((e) => [e.id, e.title]));
+
+    return {
+      data: reports.map((r) => ({
+        ...r,
+        reporter_name: nameById[r.reporter_id] || 'Unknown',
+        reported_user_name: r.reported_user_id ? nameById[r.reported_user_id] || 'Unknown' : null,
+        event_title: r.event_id ? titleById[r.event_id] || 'Unknown' : null,
+      })),
+      error: null,
+    };
+  }
+
+  async function adminUpdateReportStatus(reportId, status) {
+    const { error } = await sb().from('reports').update({ status }).eq('id', reportId);
+    return { error };
+  }
+
+  async function adminListFeedback() {
+    const { data, error } = await sb()
+      .from('feedback')
+      .select('*, profile:profiles(name)')
+      .order('created_at', { ascending: false });
+    return { data, error };
+  }
+
   async function myHostedEvents(userId) {
     const { data, error } = await sb()
       .from('events')
@@ -361,5 +426,10 @@ window.RealApi = (function () {
     submitReport,
     myHostedEvents,
     myAttendingEvents,
+    adminListMembers,
+    adminListEvents,
+    adminListReports,
+    adminUpdateReportStatus,
+    adminListFeedback,
   };
 })();

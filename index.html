@@ -24,6 +24,7 @@
       <a href="#/map" data-nav="map">Map</a>
       <a href="#/profile" data-nav="profile">Profile</a>
       <a href="#/guidelines" data-nav="guidelines">Guidelines</a>
+      <a href="#/admin" data-nav="admin" id="admin-nav-link" hidden>Admin</a>
     </nav>
     <div class="notif-wrap">
       <button id="notif-btn" class="notif-btn" type="button" aria-label="Notifications">
@@ -357,6 +358,23 @@
 
     <div id="activity-map-full" role="img" aria-label="Map of event locations; larger circles indicate more events at that spot"></div>
     <p id="map-full-empty" class="map-note" hidden>No events on the map yet — host one and be the first pin!</p>
+  </section>
+
+  <!-- ============================= ADMIN ================================ -->
+  <section id="view-admin" class="view">
+    <div class="page-header">
+      <h1>Admin dashboard</h1>
+    </div>
+    <p class="page-sub">Visible to admins only — member directory, every event, and the moderation queue.</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-admin-tab="members" type="button">Members</button>
+      <button class="tab-btn" data-admin-tab="events" type="button">Events</button>
+      <button class="tab-btn" data-admin-tab="reports" type="button">Reports</button>
+      <button class="tab-btn" data-admin-tab="feedback" type="button">Feedback</button>
+    </div>
+
+    <div id="admin-panel" class="table-scroll"></div>
   </section>
 
 </main>

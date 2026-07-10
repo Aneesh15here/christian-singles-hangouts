@@ -26,15 +26,18 @@ window.MockApi = (function () {
   }
 
   function seedIfNeeded() {
-    // v2: seed events carry map coordinates; re-seed older demo data.
-    if (read('seeded_v2', false)) return;
+    // v3: Maria is now the demo admin; re-seed older demo data so her
+    // profile picks up is_admin.
+    if (read('seeded_v3', false)) return;
 
     const hostA = { id: uid(), email: 'maria@example.com', password: 'demo', name: 'Maria', bio: 'Loves board games and hiking.' };
     const hostB = { id: uid(), email: 'james@example.com', password: 'demo', name: 'James', bio: 'Makes too much coffee, shares it gladly.' };
     write('users', [hostA, hostB]);
     write('profiles', {
-      [hostA.id]: { id: hostA.id, name: hostA.name, bio: hostA.bio },
-      [hostB.id]: { id: hostB.id, name: hostB.name, bio: hostB.bio },
+      // Maria is the demo admin, so logging in as her (maria@example.com /
+      // demo) shows what the admin dashboard looks like in demo mode too.
+      [hostA.id]: { id: hostA.id, name: hostA.name, bio: hostA.bio, is_admin: true },
+      [hostB.id]: { id: hostB.id, name: hostB.name, bio: hostB.bio, is_admin: false },
     });
 
     const today = new Date();
@@ -77,7 +80,7 @@ window.MockApi = (function () {
     write('messages', [
       { id: uid(), event_id: events[0].id, user_id: hostA.id, body: 'Looking forward to it! Meet at the main sign.', created_at: new Date().toISOString() },
     ]);
-    write('seeded_v2', true);
+    write('seeded_v3', true);
   }
   seedIfNeeded();
 
@@ -318,9 +321,18 @@ window.MockApi = (function () {
     return () => messageListeners[eventId].delete(onInsert);
   }
 
-  async function submitReport(report) {
+  async function submitReport({ reporterId, eventId, reportedUserId, reason, details }) {
     const reports = read('reports', []);
-    reports.push({ id: uid(), created_at: new Date().toISOString(), status: 'open', ...report });
+    reports.push({
+      id: uid(),
+      created_at: new Date().toISOString(),
+      status: 'open',
+      reporter_id: reporterId,
+      event_id: eventId || null,
+      reported_user_id: reportedUserId || null,
+      reason,
+      details: details || null,
+    });
     write('reports', reports);
     return { error: null };
   }
@@ -330,6 +342,54 @@ window.MockApi = (function () {
     feedback.push({ id: uid(), user_id: userId || null, email: email || null, message, created_at: new Date().toISOString() });
     write('feedback', feedback);
     return { error: null };
+  }
+
+  // ------------------------------------------------------------------ admin
+  async function adminListMembers() {
+    const users = read('users', []);
+    const profiles = read('profiles', {});
+    const data = users.map((u) => ({
+      id: u.id,
+      name: profiles[u.id]?.name || u.name,
+      bio: profiles[u.id]?.bio || '',
+      email: u.email,
+      is_admin: !!profiles[u.id]?.is_admin,
+      joined_at: new Date().toISOString(),
+    }));
+    return { data, error: null };
+  }
+
+  async function adminListEvents() {
+    const events = [...read('events', [])].sort((a, b) => (b.event_date + b.event_time).localeCompare(a.event_date + a.event_time));
+    return { data: attachHostAndCounts(events), error: null };
+  }
+
+  async function adminListReports() {
+    const profiles = read('profiles', {});
+    const events = read('events', []);
+    const data = read('reports', [])
+      .map((r) => ({
+        ...r,
+        reporter_name: profiles[r.reporter_id]?.name || 'Unknown',
+        reported_user_name: r.reported_user_id ? profiles[r.reported_user_id]?.name || 'Unknown' : null,
+        event_title: r.event_id ? events.find((e) => e.id === r.event_id)?.title || 'Unknown' : null,
+      }))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return { data, error: null };
+  }
+
+  async function adminUpdateReportStatus(reportId, status) {
+    const reports = read('reports', []).map((r) => (r.id === reportId ? { ...r, status } : r));
+    write('reports', reports);
+    return { error: null };
+  }
+
+  async function adminListFeedback() {
+    const profiles = read('profiles', {});
+    const data = read('feedback', [])
+      .map((f) => ({ ...f, profile: f.user_id && profiles[f.user_id] ? { name: profiles[f.user_id].name } : null }))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return { data, error: null };
   }
 
   async function myHostedEvents(userId) {
@@ -377,5 +437,10 @@ window.MockApi = (function () {
     submitReport,
     myHostedEvents,
     myAttendingEvents,
+    adminListMembers,
+    adminListEvents,
+    adminListReports,
+    adminUpdateReportStatus,
+    adminListFeedback,
   };
 })();

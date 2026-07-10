@@ -148,6 +148,14 @@
     } else if (path === 'map') {
       show('view-map');
       renderActivityMapPage();
+    } else if (path === 'admin') {
+      if (!state.profile?.is_admin) {
+        showToast("You don't have access to that page.");
+        navigate('discover');
+        return;
+      }
+      show('view-admin');
+      await renderAdmin();
     } else {
       show('view-landing');
     }
@@ -968,6 +976,120 @@
     showToast('Profile saved.');
   });
 
+  // ------------------------------------------------------------------ admin
+  // Client-side gating (router redirect + hidden nav link) is UX only —
+  // the real enforcement is server-side RLS via the is_admin flag, so a
+  // non-admin who forces #/admin just gets empty tables, never other
+  // members' data.
+  let adminTab = 'members';
+  document.querySelectorAll('[data-admin-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      adminTab = btn.dataset.adminTab;
+      document.querySelectorAll('[data-admin-tab]').forEach((b) => b.classList.toggle('active', b === btn));
+      renderAdmin();
+    });
+  });
+
+  function reportStatusOptions(current) {
+    return ['open', 'reviewing', 'resolved', 'dismissed']
+      .map((s) => `<option value="${s}" ${s === current ? 'selected' : ''}>${s[0].toUpperCase()}${s.slice(1)}</option>`)
+      .join('');
+  }
+
+  async function renderAdmin() {
+    const panel = document.getElementById('admin-panel');
+    panel.innerHTML = '<p class="admin-empty">Loading…</p>';
+
+    if (adminTab === 'members') {
+      const { data, error } = await Api.adminListMembers();
+      if (error || !data) { panel.innerHTML = '<p class="admin-empty">Couldn\'t load members.</p>'; return; }
+      if (data.length === 0) { panel.innerHTML = '<p class="admin-empty">No members yet.</p>'; return; }
+      panel.innerHTML = `
+        <table class="admin-table">
+          <thead><tr><th>Name</th><th>Email</th><th>Bio</th><th>Admin</th><th>Joined</th></tr></thead>
+          <tbody>
+            ${data.map((m) => `
+              <tr>
+                <td>${escapeHtml(m.name || '—')}</td>
+                <td>${escapeHtml(m.email || '—')}</td>
+                <td class="wrap">${escapeHtml(m.bio || '—')}</td>
+                <td>${m.is_admin ? '✅' : ''}</td>
+                <td>${m.joined_at ? formatDate(m.joined_at.slice(0, 10)) : '—'}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } else if (adminTab === 'events') {
+      const { data, error } = await Api.adminListEvents();
+      if (error || !data) { panel.innerHTML = '<p class="admin-empty">Couldn\'t load events.</p>'; return; }
+      if (data.length === 0) { panel.innerHTML = '<p class="admin-empty">No events yet.</p>'; return; }
+      panel.innerHTML = `
+        <table class="admin-table">
+          <thead><tr><th>Title</th><th>Category</th><th>When</th><th>Location</th><th>Host</th><th>Attendees</th></tr></thead>
+          <tbody>
+            ${data.map((e) => `
+              <tr>
+                <td class="wrap"><a href="#/event/${e.id}" class="link">${escapeHtml(e.title)}</a></td>
+                <td>${escapeHtml(categoryLabel(e.category))}</td>
+                <td>${formatDate(e.event_date)} · ${formatTime(e.event_time)}</td>
+                <td class="wrap">${escapeHtml(e.location_name)}</td>
+                <td>${escapeHtml(e.host?.name || 'Unknown')}</td>
+                <td>${e.attendee_count}${e.capacity ? ' / ' + e.capacity : ''}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } else if (adminTab === 'reports') {
+      const { data, error } = await Api.adminListReports();
+      if (error || !data) { panel.innerHTML = '<p class="admin-empty">Couldn\'t load reports.</p>'; return; }
+      if (data.length === 0) { panel.innerHTML = '<p class="admin-empty">No reports — nothing flagged.</p>'; return; }
+      panel.innerHTML = `
+        <table class="admin-table">
+          <thead><tr><th>Reason</th><th>Details</th><th>Reported</th><th>Reporter</th><th>Status</th><th>When</th></tr></thead>
+          <tbody>
+            ${data.map((r) => {
+              const reported = [
+                r.event_title ? `event: ${escapeHtml(r.event_title)}` : '',
+                r.reported_user_name ? `user: ${escapeHtml(r.reported_user_name)}` : '',
+              ].filter(Boolean).join(', ') || '—';
+              return `
+              <tr data-report-id="${r.id}">
+                <td>${escapeHtml(r.reason)}</td>
+                <td class="wrap">${escapeHtml(r.details || '—')}</td>
+                <td class="wrap">${reported}</td>
+                <td>${escapeHtml(r.reporter_name)}</td>
+                <td><select class="status-select" data-report-status>${reportStatusOptions(r.status)}</select></td>
+                <td>${relativeTime(r.created_at)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
+      panel.querySelectorAll('[data-report-status]').forEach((sel) => {
+        sel.addEventListener('change', async () => {
+          const reportId = sel.closest('tr').dataset.reportId;
+          const { error } = await Api.adminUpdateReportStatus(reportId, sel.value);
+          if (error) { showToast('Could not update status'); return; }
+          showToast('Report updated.');
+        });
+      });
+    } else if (adminTab === 'feedback') {
+      const { data, error } = await Api.adminListFeedback();
+      if (error || !data) { panel.innerHTML = '<p class="admin-empty">Couldn\'t load feedback.</p>'; return; }
+      if (data.length === 0) { panel.innerHTML = '<p class="admin-empty">No feedback yet.</p>'; return; }
+      panel.innerHTML = `
+        <table class="admin-table">
+          <thead><tr><th>Message</th><th>From</th><th>Reply-to</th><th>When</th></tr></thead>
+          <tbody>
+            ${data.map((f) => `
+              <tr>
+                <td class="wrap">${escapeHtml(f.message)}</td>
+                <td>${escapeHtml(f.profile?.name || 'Guest')}</td>
+                <td>${escapeHtml(f.email || '—')}</td>
+                <td>${relativeTime(f.created_at)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }
+  }
+
   // -------------------------------------------------------------------- boot
   async function setLoggedInChrome(loggedIn) {
     document.getElementById('app-nav').hidden = !loggedIn;
@@ -993,6 +1115,7 @@
           ({ data } = await Api.ensureProfile(session));
         }
         state.profile = data;
+        document.getElementById('admin-nav-link').hidden = !state.profile?.is_admin;
 
         // A direct link to a protected page (e.g. #/edit/<id>) bounces to
         // auth before the stored session finishes restoring — once it has,

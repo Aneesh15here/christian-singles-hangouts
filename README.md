@@ -165,9 +165,12 @@ browser (or incognito window) to see it as a second user.
   events you've joined. In-app only (no email/push); opening the panel
   marks them read.
 - **Event detail**: see the full plan, who's going (name + optional
-  one-line intro, not contact info), RSVP or cancel, share a one-tap
-  link, and chat with the group. Chat is visible only to the host and
-  people who've RSVP'd.
+  one-line intro, not contact info), RSVP or cancel, and chat with the
+  group. Chat is visible only to the host and people who've RSVP'd. A
+  **Share** menu covers Facebook (opens the standard share dialog),
+  Instagram (copies a caption + link, since Instagram has no web
+  share-intent for posts — paste it into a Story or DM), email (a
+  prefilled `mailto:`), and plain copy-link.
 - **My Events**: separate Attending / Hosting tabs, plus an inline
   reminder banner for anything you're attending in the next 48 hours.
 - **Profile**: name + optional short bio — that's the entire personal data
@@ -177,18 +180,24 @@ browser (or incognito window) to see it as a second user.
   stats. Viewable without logging in, same as Guidelines.
 - **Guidelines**: plain-language community guidelines (kindness, respect,
   safety, everyone welcome).
-- **Report**: any event page has a Report button. Reports go straight into
-  a `reports` table that only an admin using the Supabase dashboard can
-  read (no regular user, including the reporter, can read reports back —
-  see the RLS notes in `schema.sql`).
+- **Report**: any event page has a Report button. Reports go into a
+  `reports` table that no regular user (including the reporter) can read
+  back — only an admin, via the in-app **Admin dashboard** or the
+  Supabase dashboard, can see them (see the RLS notes in `schema.sql`).
 - **Feedback**: a quiet "Feedback" link in the footer of every page opens a
   form to send a note to the admin, with a mailto fallback. See the
   **Feedback / contact admin** section below.
+- **Admin** (`#/admin`): visible in the nav only to admins. A read-only
+  dashboard — member directory (with email), every event, and the
+  moderation queue (reports, with a status dropdown, and feedback). See
+  the **Admin dashboard** section below for how to bootstrap your first
+  admin.
 
 ## Data model
 
 - **`profiles`** — one row per user (`id` = `auth.users.id`), `name`,
-  optional `bio`. Auto-created by a trigger on signup.
+  optional `bio`, `is_admin` (default `false`). Auto-created by a trigger
+  on signup; see **Admin dashboard** below for how `is_admin` is used.
 - **`events`** — `host_id`, `title`, `description`, `category`,
   `event_date`, `event_time`, `location_name`, optional `latitude`/
   `longitude` (geocoded from the location name at creation, for the
@@ -199,9 +208,11 @@ browser (or incognito window) to see it as a second user.
 - **`event_messages`** — group chat scoped to one `event_id`. RLS only
   lets the event's host and RSVP'd attendees read or post.
 - **`reports`** — `reporter_id`, optional `event_id` / `reported_user_id`,
-  `reason`, optional `details`, `status`. Insert-only from the client.
+  `reason`, optional `details`, `status`. Insert-only for regular users;
+  admins can view and update `status` (see **Admin dashboard** below).
 - **`feedback`** — optional `user_id`, optional reply-to `email`, `message`.
-  Insert-only from the client, same pattern as `reports`.
+  Insert-only for regular users, same pattern as `reports`; admins can
+  view it.
 - **`notifications`** — `event_id`, `recipient_id`, `message`, `read`.
   Created by an event's host when they change the date/time/location of an
   event with RSVPs; each recipient can only read and mark-read their own.
@@ -255,8 +266,9 @@ unless you're looking for it, by design — this isn't a primary nav item).
 It opens a small form (message + optional reply-to email) that anyone, logged
 in or not, can submit. There's also a permanent "email us directly" mailto
 link to `anee.karan@gmail.com` right under the form, since there's no
-email-sending backend — submissions are simply stored in a `feedback` table
-for the admin to read from the Supabase dashboard.
+email-sending backend — submissions are simply stored in a `feedback` table,
+readable from the in-app **Admin dashboard** (see below) or the Supabase
+dashboard.
 
 - **New table required.** If your Supabase project was set up before this
   feature, run just the new section below (not the whole `schema.sql` —
@@ -282,10 +294,73 @@ for the admin to read from the Supabase dashboard.
   Until that's run, submitting the form shows a friendly inline error
   pointing at the mailto fallback instead of silently failing.
 - Like `reports`, there's intentionally no select/update/delete policy for
-  regular users — feedback is insert-only from the client and readable only
-  via the Supabase dashboard (or a service-role key).
+  regular users — feedback is insert-only from the client. Only an admin
+  (see below) or someone with the Supabase dashboard / a service-role key
+  can read submissions.
 - Works in demo mode too: submissions are written to `localStorage` under
   the `feedback` key, same pattern as every other mock table.
+
+## Admin dashboard
+
+A read-only `#/admin` page (linked from the nav bar, but only visible to
+admins) shows the member directory, every event, and the moderation queue
+(reports + feedback) — all from inside the app, no Supabase dashboard
+required for day-to-day use.
+
+- **New: `is_admin` flag + policies required.** If your Supabase project
+  predates this feature, run just this block (not the whole `schema.sql`):
+
+  ```sql
+  alter table public.profiles add column if not exists is_admin boolean not null default false;
+
+  create policy "Admins can view all reports"
+    on public.reports for select
+    using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin));
+
+  create policy "Admins can update report status"
+    on public.reports for update
+    using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin));
+
+  create policy "Admins can view all feedback"
+    on public.feedback for select
+    using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin));
+
+  create or replace function public.admin_list_members()
+  returns table (id uuid, name text, bio text, email text, is_admin boolean, joined_at timestamptz)
+  language sql
+  security definer
+  set search_path = public
+  as $$
+    select p.id, p.name, p.bio, u.email, p.is_admin, p.created_at
+    from public.profiles p
+    join auth.users u on u.id = p.id
+    where exists (select 1 from public.profiles me where me.id = auth.uid() and me.is_admin)
+    order by p.created_at desc;
+  $$;
+
+  revoke all on function public.admin_list_members() from public;
+  grant execute on function public.admin_list_members() to authenticated;
+  ```
+
+- **There's no UI to grant admin, by design** — bootstrapping the first
+  admin always requires a direct SQL update in the Supabase SQL Editor:
+
+  ```sql
+  update public.profiles set is_admin = true
+  where id = (select id from auth.users where email = 'you@example.com');
+  ```
+
+- Member email lives in `auth.users`, not `public.profiles`, and the
+  `auth` schema isn't exposed over the client API — `admin_list_members()`
+  bridges that gap with a `security definer` function. Its internal
+  `is_admin` check means a non-admin caller who somehow invokes it just
+  gets zero rows back, never an error or another member's data.
+- Enforcement is server-side (RLS + the function's own admin check) —
+  the nav link being hidden and the router redirecting non-admins away
+  from `#/admin` is just UX, not the actual security boundary.
+- Works in demo mode too: the seeded "Maria" account
+  (`maria@example.com` / `demo`) is the demo admin, so you can try the
+  whole dashboard without touching Supabase.
 
 ## What's tested
 

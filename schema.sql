@@ -253,6 +253,54 @@ create policy "Hosts can notify attendees of their own events"
   );
 
 -- ---------------------------------------------------------------------
+-- admin: a single is_admin flag on profiles, gating a read-only admin
+-- dashboard in the app (members, events, reports, feedback). There is no
+-- UI to grant admin — bootstrapping the first admin always requires a
+-- direct SQL update (see README).
+-- ---------------------------------------------------------------------
+alter table public.profiles add column if not exists is_admin boolean not null default false;
+
+create policy "Admins can view all reports"
+  on public.reports for select
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin));
+
+create policy "Admins can update report status"
+  on public.reports for update
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin));
+
+create policy "Admins can view all feedback"
+  on public.feedback for select
+  using (exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin));
+
+-- Member email lives in auth.users, not public.profiles, and the auth
+-- schema isn't exposed over the client API — this function bridges that
+-- gap for admins only. security definer lets it read auth.users; the
+-- exists() check means a non-admin caller just gets zero rows back
+-- rather than an error.
+create or replace function public.admin_list_members()
+returns table (
+  id uuid,
+  name text,
+  bio text,
+  email text,
+  is_admin boolean,
+  joined_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select p.id, p.name, p.bio, u.email, p.is_admin, p.created_at
+  from public.profiles p
+  join auth.users u on u.id = p.id
+  where exists (select 1 from public.profiles me where me.id = auth.uid() and me.is_admin)
+  order by p.created_at desc;
+$$;
+
+revoke all on function public.admin_list_members() from public;
+grant execute on function public.admin_list_members() to authenticated;
+
+-- ---------------------------------------------------------------------
 -- Realtime for event group chat (wrapped so re-running this file is safe)
 -- ---------------------------------------------------------------------
 do $$

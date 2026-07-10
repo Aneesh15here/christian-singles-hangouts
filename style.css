@@ -332,6 +332,30 @@ main { max-width: 960px; margin: 0 auto; padding: 0 20px 80px; }
 
 .guidelines-body h3 { margin-top: 24px; }
 
+/* ----------------------------------------------------------------- admin */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--paper);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+.admin-table th, .admin-table td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.admin-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-soft); font-weight: 700; }
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-table td.wrap { white-space: normal; min-width: 200px; }
+.admin-table .status-select {
+  padding: 5px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--cream);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+}
+.admin-empty { padding: 40px 20px; text-align: center; color: var(--ink-soft); }
+
 /* --------------------------------------------------------- notifications */
 .notif-wrap { position: relative; }
 .notif-btn {
