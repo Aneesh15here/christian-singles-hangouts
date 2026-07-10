@@ -358,6 +358,7 @@
               ? `<button id="cancel-rsvp-btn" class="btn btn-ghost">Cancel my RSVP</button>`
               : `<button id="rsvp-btn" class="btn btn-primary" ${isFull ? 'disabled' : ''}>${isFull ? 'Event full' : "I'm in — RSVP"}</button>`
         }
+        ${isHost ? `<button id="invite-open-btn" class="btn btn-ghost" type="button">✉️ Invite</button>` : ''}
         <div class="share-wrap">
           <button id="share-toggle-btn" type="button" class="btn btn-ghost">🔗 Share</button>
           <div id="share-menu" class="share-menu" hidden>
@@ -436,6 +437,7 @@
     });
 
     document.getElementById('report-open-btn')?.addEventListener('click', () => openReportModal({ eventId: id, reportedUserId: ev.host_id }));
+    document.getElementById('invite-open-btn')?.addEventListener('click', () => openInviteModal({ event: ev, shareUrl }));
     document.getElementById('login-to-rsvp-btn')?.addEventListener('click', () => {
       sessionStorage.setItem('csh_pending_hash', `#/event/${id}`);
     });
@@ -632,6 +634,59 @@
     if (error) { showToast('Could not submit report'); return; }
     e.target.querySelector('[data-success]').hidden = false;
     setTimeout(() => { document.getElementById('report-modal').hidden = true; }, 1500);
+  });
+
+  // ------------------------------------------------------------------ invite
+  // No email/SMS-sending backend — like the event share menu, this opens
+  // the host's own mail or messaging app with everything prefilled
+  // (including host name/bio), rather than sending anything server-side.
+  let inviteContext = {};
+  function openInviteModal(ctx) {
+    inviteContext = ctx || {};
+    document.getElementById('invite-modal').hidden = false;
+    document.getElementById('invite-email').value = '';
+    document.getElementById('invite-phone').value = '';
+    document.getElementById('invite-note').value = '';
+    document.getElementById('invite-error').hidden = true;
+  }
+  document.getElementById('invite-close').addEventListener('click', () => { document.getElementById('invite-modal').hidden = true; });
+
+  function inviteMessage({ short } = {}) {
+    const { event: ev, shareUrl } = inviteContext;
+    const hostName = ev.host?.name || 'A Gather host';
+    const when = `${formatDate(ev.event_date)} at ${formatTime(ev.event_time)}`;
+    const note = document.getElementById('invite-note').value.trim();
+    if (short) {
+      return `${hostName} invited you to "${ev.title}" — ${when} at ${ev.location_name}.${note ? ' ' + note : ''} RSVP: ${shareUrl}`;
+    }
+    const noteLine = note ? `${note}\n\n` : '';
+    const bioLine = ev.host?.bio ? `\n\nAbout ${hostName}: ${ev.host.bio}` : '';
+    return `${hostName} is inviting you to "${ev.title}"!\n\n📅 ${when}\n📍 ${ev.location_name}\n\n${noteLine}${ev.description}${bioLine}\n\nRSVP here: ${shareUrl}\n\n— Sent via Gather`;
+  }
+
+  document.getElementById('invite-email-btn').addEventListener('click', () => {
+    const email = document.getElementById('invite-email').value.trim();
+    const errEl = document.getElementById('invite-error');
+    if (!email) { errEl.textContent = 'Enter an email address to send an email invite.'; errEl.hidden = false; return; }
+    errEl.hidden = true;
+    const emailList = email.replace(/\s+/g, '');
+    const subject = encodeURIComponent(`You're invited: ${inviteContext.event.title}`);
+    const body = encodeURIComponent(inviteMessage());
+    window.location.href = `mailto:${emailList}?subject=${subject}&body=${body}`;
+    document.getElementById('invite-modal').hidden = true;
+  });
+
+  document.getElementById('invite-sms-btn').addEventListener('click', () => {
+    const phone = document.getElementById('invite-phone').value.trim();
+    const errEl = document.getElementById('invite-error');
+    if (!phone) { errEl.textContent = 'Enter a phone number to send a text invite.'; errEl.hidden = false; return; }
+    errEl.hidden = true;
+    const digits = phone.replace(/[^\d+]/g, '');
+    const body = encodeURIComponent(inviteMessage({ short: true }));
+    // iOS wants "&body=" after the number, most other platforms want "?body=".
+    const sep = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? '&' : '?';
+    window.location.href = `sms:${digits}${sep}body=${body}`;
+    document.getElementById('invite-modal').hidden = true;
   });
 
   // ------------------------------------------------------------------ create

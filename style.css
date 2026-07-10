@@ -496,6 +496,7 @@ main { max-width: 960px; margin: 0 auto; padding: 0 20px 80px; }
 .modal { background: var(--paper); border-radius: var(--radius); padding: 28px; max-width: 420px; width: 100%; position: relative; box-shadow: var(--shadow-lg); }
 .modal-close { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 16px; cursor: pointer; color: var(--ink-soft); }
 .modal label { display: block; margin-bottom: 14px; font-size: 14px; font-weight: 600; }
+.invite-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
 
 @media (max-width: 700px) {
   .nav-inner { flex-wrap: wrap; row-gap: 10px; }

@@ -440,6 +440,31 @@
   </div>
 </div>
 
+<!-- =============================== INVITE MODAL ================================ -->
+<div id="invite-modal" class="modal-overlay" hidden>
+  <div class="modal">
+    <button class="modal-close" id="invite-close" aria-label="Close">✕</button>
+    <h2>Invite someone</h2>
+    <p class="form-sub">Sends from your own email or messaging app — the invite includes your name and the event details. No account needed to receive it.</p>
+    <div id="invite-body">
+      <label>Their email (optional — separate multiple with commas)
+        <input type="email" id="invite-email" multiple placeholder="friend@example.com" />
+      </label>
+      <label>Their phone number (optional — one at a time)
+        <input type="tel" id="invite-phone" placeholder="+1 555 123 4567" />
+      </label>
+      <label>Add a personal note (optional)
+        <textarea id="invite-note" rows="2" maxlength="300" placeholder="Hope you can make it!"></textarea>
+      </label>
+      <div class="invite-actions">
+        <button type="button" id="invite-email-btn" class="btn btn-primary btn-block">✉️ Send email invite</button>
+        <button type="button" id="invite-sms-btn" class="btn btn-ghost btn-block">💬 Send text invite</button>
+      </div>
+      <p class="form-error" id="invite-error" hidden></p>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="config.js"></script>

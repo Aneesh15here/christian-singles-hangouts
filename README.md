@@ -160,6 +160,15 @@ browser (or incognito window) to see it as a second user.
   location** changes, everyone who's RSVP'd gets an in-app notification;
   trivial edits (typo fixes in the description, capacity tweaks) don't
   notify anyone.
+- **Invite**: hosts see an "✉️ Invite" button on their own event's page,
+  opening a modal to invite by email and/or phone number (comma-separate
+  multiple emails; one phone number at a time). Like the Share menu,
+  there's no email/SMS-sending backend — it opens the host's own mail or
+  messaging app with a prefilled invite (subject and body for email, a
+  shorter body for text) that always includes the host's name, the event
+  details, and an optional personal note. If the host has a bio, it's
+  included too, so the recipient knows who's inviting them before they
+  even open the app.
 - **Notifications**: a 🔔 bell in the nav shows an unread count and a
   simple list — currently used for "the host changed the plan" updates on
   events you've joined. In-app only (no email/push); opening the panel
