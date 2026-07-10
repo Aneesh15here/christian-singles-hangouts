@@ -69,7 +69,9 @@
     el.textContent = msg;
     el.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { el.hidden = true; }, 3000);
+    // Longer messages (e.g. the Instagram share explainer) need more time to read.
+    const duration = Math.min(Math.max(msg.length * 60, 3000), 7000);
+    toastTimer = setTimeout(() => { el.hidden = true; }, duration);
   }
 
   function avatarStackHtml(count, max = 5) {
@@ -157,6 +159,8 @@
       document.getElementById('notif-panel').hidden = true;
       refreshNotifBadge(); // fire-and-forget; badge fills in as data arrives
     }
+
+    window.GatherReveal?.reveal(); // wire up scroll-reveal for any newly-rendered content
   }
 
   // event id can be embedded as #/event/<id> — parse that shape specially
@@ -307,6 +311,7 @@
     }
     empty.hidden = true;
     list.innerHTML = data.map(eventCardHtml).join('');
+    window.GatherReveal?.reveal(list);
   }
 
   // ----------------------------------------------------------- event detail
@@ -345,7 +350,15 @@
               ? `<button id="cancel-rsvp-btn" class="btn btn-ghost">Cancel my RSVP</button>`
               : `<button id="rsvp-btn" class="btn btn-primary" ${isFull ? 'disabled' : ''}>${isFull ? 'Event full' : "I'm in — RSVP"}</button>`
         }
-        <button id="share-btn" class="btn btn-ghost">🔗 Share</button>
+        <div class="share-wrap">
+          <button id="share-toggle-btn" type="button" class="btn btn-ghost">🔗 Share</button>
+          <div id="share-menu" class="share-menu" hidden>
+            <button type="button" class="share-item" data-share="facebook">📘 Share to Facebook</button>
+            <button type="button" class="share-item" data-share="instagram">📸 Share to Instagram</button>
+            <button type="button" class="share-item" data-share="email">✉️ Share by email</button>
+            <button type="button" class="share-item" data-share="copy">🔗 Copy link</button>
+          </div>
+        </div>
         ${state.session ? `<button id="report-open-btn" class="btn btn-ghost">🚩 Report</button>` : ''}
       </div>
 
@@ -371,13 +384,47 @@
         </form>` : `<p class="empty-state">RSVP to join the conversation.</p>`}
     `;
 
-    document.getElementById('share-btn').addEventListener('click', async () => {
+    const shareToggleBtn = document.getElementById('share-toggle-btn');
+    const shareMenu = document.getElementById('share-menu');
+    shareToggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      shareMenu.hidden = !shareMenu.hidden;
+    });
+
+    async function copyShareLink(text) {
       try {
-        await navigator.clipboard.writeText(shareUrl);
-        showToast('Link copied — share it with a friend!');
+        await navigator.clipboard.writeText(text);
+        return true;
       } catch {
-        prompt('Copy this link:', shareUrl);
+        prompt('Copy this:', text);
+        return false;
       }
+    }
+
+    const eventWhen = `${formatDate(ev.event_date)} at ${formatTime(ev.event_time)}`;
+
+    shareMenu.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-share]');
+      if (!btn) return;
+      const kind = btn.dataset.share;
+
+      if (kind === 'facebook') {
+        const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+        window.open(fbUrl, '_blank', 'noopener,noreferrer,width=600,height=600');
+      } else if (kind === 'instagram') {
+        const caption = `${ev.title} — ${eventWhen} at ${ev.location_name}\n${shareUrl}`;
+        const ok = await copyShareLink(caption);
+        if (ok) showToast("Copied! Instagram doesn't support posting links directly from other sites — open Instagram and paste this into your Story or a DM.");
+      } else if (kind === 'email') {
+        const subject = encodeURIComponent(`You're invited: ${ev.title}`);
+        const bodyLines = [ev.title, eventWhen, `📍 ${ev.location_name}`, '', ev.description, '', shareUrl].filter((l) => l !== undefined);
+        window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(bodyLines.join('\n'))}`;
+      } else if (kind === 'copy') {
+        const ok = await copyShareLink(shareUrl);
+        if (ok) showToast('Link copied — share it with a friend!');
+      }
+
+      shareMenu.hidden = true;
     });
 
     document.getElementById('report-open-btn')?.addEventListener('click', () => openReportModal({ eventId: id, reportedUserId: ev.host_id }));
@@ -473,6 +520,14 @@
   function closeNotifPanel() {
     document.getElementById('notif-panel').hidden = true;
   }
+
+  // Closes the event-detail share menu when clicking anywhere outside it.
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('share-menu');
+    if (menu && !menu.hidden && !e.target.closest('.share-wrap')) {
+      menu.hidden = true;
+    }
+  });
 
   function relativeTime(iso) {
     const mins = Math.round((Date.now() - new Date(iso)) / 60000);
@@ -644,9 +699,9 @@
   async function renderCommunityStats() {
     const { data: stats } = await Api.getCommunityStats();
     if (stats) {
-      document.getElementById('stat-members').textContent = stats.members;
-      document.getElementById('stat-upcoming').textContent = stats.upcoming;
-      document.getElementById('stat-active').textContent = stats.activeThisWeek;
+      window.GatherReveal?.animateCount(document.getElementById('stat-members'), stats.members);
+      window.GatherReveal?.animateCount(document.getElementById('stat-upcoming'), stats.upcoming);
+      window.GatherReveal?.animateCount(document.getElementById('stat-active'), stats.activeThisWeek);
     }
 
     const mapEl = document.getElementById('activity-map');
@@ -679,12 +734,12 @@
     const { data: locations } = await Api.listEventLocations();
 
     const total = locations ? locations.length : 0;
-    document.getElementById('map-stat-events').textContent = total;
+    window.GatherReveal?.animateCount(document.getElementById('map-stat-events'), total);
 
     if (!window.L || !locations || locations.length === 0) {
       mapEl.style.display = 'none';
       emptyNote.hidden = false;
-      document.getElementById('map-stat-spots').textContent = '0';
+      window.GatherReveal?.animateCount(document.getElementById('map-stat-spots'), 0);
       document.getElementById('map-stat-top').textContent = '–';
       return;
     }
@@ -692,7 +747,7 @@
     emptyNote.hidden = true;
 
     const points = groupEventLocations(locations);
-    document.getElementById('map-stat-spots').textContent = points.length;
+    window.GatherReveal?.animateCount(document.getElementById('map-stat-spots'), points.length);
     const top = points.reduce((a, b) => (b.count > a.count ? b : a), points[0]);
     document.getElementById('map-stat-top').textContent = [...top.names][0] || '–';
 
@@ -891,6 +946,7 @@
     }
     empty.hidden = true;
     list.innerHTML = data.map(eventCardHtml).join('');
+    window.GatherReveal?.reveal(list);
   }
 
   // ------------------------------------------------------------------ profile
