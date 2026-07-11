@@ -301,10 +301,12 @@ the app never shows a dead button.
 A low-key "Feedback" link sits in the footer on every page (easy to miss
 unless you're looking for it, by design — this isn't a primary nav item).
 It opens a small form (message + optional reply-to email) that anyone, logged
-in or not, can submit. There's no email-sending backend and no admin email
-address exposed anywhere on the site — submissions are simply stored in a
-`feedback` table, readable from the in-app **Admin dashboard** (see below) or
-the Supabase dashboard.
+in or not, can submit. There's also a permanent "email us directly" mailto
+link to the app's public admin address (`admin4realchristiansgather@gmail.com`
+— a dedicated address for this purpose, not anyone's personal email) right
+under the form, since there's no email-sending backend — submissions are also
+simply stored in a `feedback` table, readable from the in-app **Admin
+dashboard** (see below) or the Supabase dashboard.
 
 - **New table required.** If your Supabase project was set up before this
   feature, run just the new section below (not the whole `schema.sql` —

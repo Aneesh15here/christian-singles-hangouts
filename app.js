@@ -682,7 +682,7 @@
       message: fd.get('message').trim(),
     });
     if (error) {
-      errEl.textContent = "That didn't go through — mind trying again in a moment?";
+      errEl.textContent = "That didn't go through just now — mind using the email link below instead?";
       errEl.hidden = false;
       return;
     }
