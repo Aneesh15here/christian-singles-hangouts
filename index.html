@@ -5,6 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Gather — Christian community hangouts</title>
 <meta name="description" content="Gather: find and host casual group hangouts — hikes, coffee, board games, Bible study, and more. A non-denominational Christian community open to everyone. Less scrolling, more showing up." />
+<link rel="canonical" href="https://realchristiansgather.com/" />
+<meta name="theme-color" content="#e05e3d" />
+
+<!-- Social sharing cards (Facebook / WhatsApp / iMessage / X) -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Gather" />
+<meta property="og:title" content="Gather — Real hangouts. Real people." />
+<meta property="og:description" content="Hikes, coffee, game nights, Bible study — hosted by people like you. A Christian community open to everyone. Less scrolling, more showing up." />
+<meta property="og:url" content="https://realchristiansgather.com/" />
+<meta property="og:image" content="https://realchristiansgather.com/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Gather — Real hangouts. Real people." />
+<meta name="twitter:description" content="Hikes, coffee, game nights, Bible study — hosted by people like you. Less scrolling, more showing up." />
+<meta name="twitter:image" content="https://realchristiansgather.com/og-image.png" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Gather",
+  "url": "https://realchristiansgather.com/",
+  "description": "Find and host casual group hangouts — hikes, coffee, board games, Bible study, and more. A non-denominational Christian community open to everyone."
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
@@ -24,6 +54,7 @@
       <a href="#/map" data-nav="map">Map</a>
       <a href="#/profile" data-nav="profile">Profile</a>
       <a href="#/guidelines" data-nav="guidelines">Guidelines</a>
+      <a href="#/share" data-nav="share">📣 Share</a>
       <a href="#/admin" data-nav="admin" id="admin-nav-link" hidden>Admin</a>
     </nav>
     <div class="notif-wrap">
@@ -49,7 +80,7 @@
       <div class="hero-blob hero-blob-b" aria-hidden="true"></div>
       <div class="hero-inner">
         <p class="eyebrow">A Christian community, open to everyone</p>
-        <h1>Come hang out. Find your people.</h1>
+        <h1>Come hang out.<br /><span class="grad-text">Find your people.</span></h1>
         <p class="hero-sub">
           Gather is where people find real things to do together — hikes,
           coffee, board game nights, Bible study, potlucks — hosted by people
@@ -385,10 +416,62 @@
     <div id="admin-panel" class="table-scroll"></div>
   </section>
 
+  <!-- ========================= SPREAD THE WORD ========================== -->
+  <section id="view-share" class="view">
+    <div class="page-header">
+      <h1>📣 Spread the word</h1>
+    </div>
+    <p class="page-sub">Every friend you bring makes the table bigger. Here's everything you need to share Gather in about ten seconds.</p>
+
+    <div class="share-grid">
+      <div class="share-card share-card-qr">
+        <img src="qr.png" alt="QR code linking to realchristiansgather.com" class="share-qr" width="200" height="200" />
+        <p class="share-url">realchristiansgather.com</p>
+        <div class="share-card-actions">
+          <button type="button" id="share-copy-link" class="btn btn-primary">🔗 Copy link</button>
+          <button type="button" id="share-native" class="btn btn-ghost" hidden>📲 Share…</button>
+          <button type="button" id="share-print-flyer" class="btn btn-ghost">🖨️ Print a flyer</button>
+        </div>
+        <p class="share-hint">The flyer prints with this QR code — pin it to a church noticeboard, café corkboard, or campus wall.</p>
+      </div>
+
+      <div class="share-card">
+        <h3>💬 For a group chat</h3>
+        <p class="share-blurb" data-blurb>Found this app called Gather — real-life hangouts (hikes, coffee, game nights, Bible study) hosted by regular people. Free to join, takes a minute: https://realchristiansgather.com</p>
+        <button type="button" class="btn btn-ghost btn-copy-blurb">Copy text</button>
+      </div>
+
+      <div class="share-card">
+        <h3>📸 For an Instagram caption or story</h3>
+        <p class="share-blurb" data-blurb>Less scrolling, more showing up 🤝 Gather is where Christians (and their friends — everyone's welcome) plan real-life hangouts: hikes, potlucks, trivia nights, Bible study. Link in bio or 👉 realchristiansgather.com</p>
+        <button type="button" class="btn btn-ghost btn-copy-blurb">Copy caption</button>
+      </div>
+
+      <div class="share-card">
+        <h3>⛪ For a church bulletin or announcement</h3>
+        <p class="share-blurb" data-blurb>Gather is a free community app for planning casual group hangouts — hikes, coffee catch-ups, game nights, and Bible studies — open to every Christian tradition and their friends. Find or host something at realchristiansgather.com.</p>
+        <button type="button" class="btn btn-ghost btn-copy-blurb">Copy announcement</button>
+      </div>
+    </div>
+  </section>
+
 </main>
+
+<!-- Print-only flyer (rendered by the "Print a flyer" button on #/share) -->
+<div id="flyer-sheet" aria-hidden="true">
+  <div class="flyer-inner">
+    <div class="flyer-logo">🤝 Gather</div>
+    <div class="flyer-tagline">Real hangouts. Real people.</div>
+    <p class="flyer-lead">Hikes · coffee · game nights · potlucks · Bible study — hosted by people like you. A Christian community open to everyone. Less scrolling, more showing up.</p>
+    <img src="qr.png" alt="" class="flyer-qr" />
+    <div class="flyer-url">realchristiansgather.com</div>
+    <div class="flyer-foot">Free to join · takes about a minute · bring a friend</div>
+  </div>
+</div>
 
 <footer class="app-footer">
   <span>Gather · made for showing up</span>
+  <a href="#/share" class="footer-link">📣 Spread the word</a>
   <button id="feedback-open-btn" class="footer-link" type="button">Feedback</button>
 </footer>
 

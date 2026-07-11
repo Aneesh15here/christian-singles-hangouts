@@ -4,8 +4,8 @@
   "description": "Find and host group hangouts — hikes, coffee, board games, Bible study, and more. A non-denominational Christian community open to everyone; less scrolling, more showing up.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#fdf8f1",
-  "theme_color": "#c1694f",
+  "background_color": "#fdf6ee",
+  "theme_color": "#e05e3d",
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]

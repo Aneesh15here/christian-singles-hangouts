@@ -74,6 +74,23 @@
     toastTimer = setTimeout(() => { el.hidden = true; }, duration);
   }
 
+  // A short confetti burst for the happy moments (RSVP, hosting an event).
+  // Skipped entirely under prefers-reduced-motion.
+  function celebrate() {
+    if (window.GatherReveal?.prefersReduced) return;
+    const colors = ['#e05e3d', '#d24b74', '#f0b64a', '#6fa476', '#2b2320'];
+    for (let i = 0; i < 36; i++) {
+      const piece = document.createElement('span');
+      piece.className = 'confetti-piece';
+      piece.style.left = Math.random() * 100 + 'vw';
+      piece.style.background = colors[i % colors.length];
+      piece.style.animationDuration = 1.4 + Math.random() * 1.3 + 's';
+      piece.style.animationDelay = Math.random() * 0.35 + 's';
+      document.body.appendChild(piece);
+      setTimeout(() => piece.remove(), 3400);
+    }
+  }
+
   function avatarStackHtml(count, max = 5) {
     const shown = Math.min(count, max);
     let html = '<div class="avatar-stack">';
@@ -104,7 +121,7 @@
     document.querySelectorAll('.view').forEach((v) => (v.hidden = true));
     document.querySelectorAll('[data-nav]').forEach((a) => a.classList.remove('active'));
 
-    if (!loggedIn && !['landing', 'auth', 'confirm', 'event', 'guidelines', 'map'].includes(path)) {
+    if (!loggedIn && !['landing', 'auth', 'confirm', 'event', 'guidelines', 'map', 'share'].includes(path)) {
       sessionStorage.setItem('csh_pending_hash', location.hash);
       navigate('auth');
       return;
@@ -148,6 +165,8 @@
     } else if (path === 'map') {
       show('view-map');
       renderActivityMapPage();
+    } else if (path === 'share') {
+      show('view-share');
     } else if (path === 'admin') {
       if (!state.profile?.is_admin) {
         showToast("You don't have access to that page.");
@@ -288,12 +307,28 @@
     renderDiscover();
   });
 
+  // "Today" / "Tomorrow" / "In N days" chip for upcoming events — a little
+  // urgency makes browsing feel alive and nudges RSVPs.
+  function whenPillHtml(ev) {
+    const day = new Date(ev.event_date + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Math.round((day - today) / 864e5);
+    if (days < 0 || days > 7) return '';
+    if (days === 0) return '<span class="pill-when pill-today">🔥 Today</span>';
+    if (days === 1) return '<span class="pill-when pill-soon">Tomorrow</span>';
+    return `<span class="pill-when">In ${days} days</span>`;
+  }
+
   function eventCardHtml(ev) {
     const hostName = escapeHtml(ev.host?.name || 'Someone');
     return `
       <a href="#/event/${ev.id}" class="event-card">
         <div class="event-card-top">
-          <span class="pill">${escapeHtml(categoryLabel(ev.category))}</span>
+          <span>
+            <span class="pill">${escapeHtml(categoryLabel(ev.category))}</span>
+            ${whenPillHtml(ev)}
+          </span>
           <span class="event-date">${formatDate(ev.event_date)} · ${formatTime(ev.event_time)}</span>
         </div>
         <h3>${escapeHtml(ev.title)}</h3>
@@ -362,12 +397,14 @@
         <div class="share-wrap">
           <button id="share-toggle-btn" type="button" class="btn btn-ghost">🔗 Share</button>
           <div id="share-menu" class="share-menu" hidden>
+            ${navigator.share ? '<button type="button" class="share-item" data-share="native">📲 Share…</button>' : ''}
             <button type="button" class="share-item" data-share="facebook">📘 Share to Facebook</button>
             <button type="button" class="share-item" data-share="instagram">📸 Share to Instagram</button>
             <button type="button" class="share-item" data-share="email">✉️ Share by email</button>
             <button type="button" class="share-item" data-share="copy">🔗 Copy link</button>
           </div>
         </div>
+        <button id="ics-btn" class="btn btn-ghost" type="button">📅 Add to calendar</button>
         ${state.session ? `<button id="report-open-btn" class="btn btn-ghost">🚩 Report</button>` : ''}
       </div>
 
@@ -417,7 +454,13 @@
       if (!btn) return;
       const kind = btn.dataset.share;
 
-      if (kind === 'facebook') {
+      if (kind === 'native') {
+        navigator.share({
+          title: ev.title,
+          text: `${ev.title} — ${eventWhen} at ${ev.location_name}`,
+          url: shareUrl,
+        }).catch(() => {}); // user closing the sheet is not an error
+      } else if (kind === 'facebook') {
         const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
         window.open(fbUrl, '_blank', 'noopener,noreferrer,width=600,height=600');
       } else if (kind === 'instagram') {
@@ -438,6 +481,42 @@
 
     document.getElementById('report-open-btn')?.addEventListener('click', () => openReportModal({ eventId: id, reportedUserId: ev.host_id }));
     document.getElementById('invite-open-btn')?.addEventListener('click', () => openInviteModal({ event: ev, shareUrl }));
+
+    // Downloads a standard .ics file so the event lands in Apple/Google/
+    // Outlook calendars — no calendar API integration needed.
+    document.getElementById('ics-btn').addEventListener('click', () => {
+      const icsEscape = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+      const fmtLocal = (d) =>
+        d.getFullYear() +
+        String(d.getMonth() + 1).padStart(2, '0') +
+        String(d.getDate()).padStart(2, '0') + 'T' +
+        String(d.getHours()).padStart(2, '0') +
+        String(d.getMinutes()).padStart(2, '0') + '00';
+      const start = new Date(`${ev.event_date}T${ev.event_time}`);
+      const end = new Date(start.getTime() + 2 * 36e5); // default 2h block
+      const ics = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Gather//realchristiansgather.com//EN',
+        'BEGIN:VEVENT',
+        `UID:${ev.id}@realchristiansgather.com`,
+        `DTSTART:${fmtLocal(start)}`,
+        `DTEND:${fmtLocal(end)}`,
+        `SUMMARY:${icsEscape(ev.title)}`,
+        `DESCRIPTION:${icsEscape(ev.description + '\n\n' + shareUrl)}`,
+        `LOCATION:${icsEscape(ev.location_name)}`,
+        `URL:${shareUrl}`,
+        'END:VEVENT',
+        'END:VCALENDAR',
+      ].join('\r\n');
+      const blob = new Blob([ics], { type: 'text/calendar' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'gather-event.ics';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('Added! Open the download to put it in your calendar.');
+    });
     document.getElementById('login-to-rsvp-btn')?.addEventListener('click', () => {
       sessionStorage.setItem('csh_pending_hash', `#/event/${id}`);
     });
@@ -449,6 +528,7 @@
         const { error } = await Api.rsvp(id, state.session.user.id, introLine);
         if (error) { showToast(error.message || 'Could not RSVP'); return; }
         showToast("You're in! See you there.");
+        celebrate();
         renderEventDetail(id);
       });
     }
@@ -689,6 +769,48 @@
     document.getElementById('invite-modal').hidden = true;
   });
 
+  // --------------------------------------------------------- spread the word
+  const SITE_URL = 'https://realchristiansgather.com/';
+
+  async function copyToClipboard(text, toastMsg) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(toastMsg);
+    } catch {
+      prompt('Copy this:', text);
+    }
+  }
+
+  document.getElementById('share-copy-link').addEventListener('click', () =>
+    copyToClipboard(SITE_URL, 'Link copied — send it to a friend!'));
+
+  document.querySelectorAll('.btn-copy-blurb').forEach((btn) => {
+    btn.addEventListener('click', () =>
+      copyToClipboard(btn.parentElement.querySelector('[data-blurb]').textContent.trim(), 'Copied — paste it anywhere!'));
+  });
+
+  const nativeShareBtn = document.getElementById('share-native');
+  if (navigator.share) {
+    nativeShareBtn.hidden = false;
+    nativeShareBtn.addEventListener('click', () => {
+      navigator.share({
+        title: 'Gather — Real hangouts. Real people.',
+        text: 'Hikes, coffee, game nights, Bible study — hosted by people like you. Free to join.',
+        url: SITE_URL,
+      }).catch(() => {});
+    });
+  }
+
+  document.getElementById('share-print-flyer').addEventListener('click', () => {
+    document.body.classList.add('printing-flyer');
+    const cleanup = () => {
+      document.body.classList.remove('printing-flyer');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+  });
+
   // ------------------------------------------------------------------ create
   const templateChips = document.getElementById('template-chips');
   const createCategorySelect = document.querySelector('#create-form select[name="category"]');
@@ -744,7 +866,7 @@
         radius: 9 + 5 * Math.sqrt(g.count - 1),
         color: '#ffffff',
         weight: 2,
-        fillColor: '#c1694f',
+        fillColor: '#e05e3d',
         fillOpacity: 0.75,
       }).addTo(map);
       marker.bindTooltip(
@@ -960,6 +1082,7 @@
       return;
     }
     showToast('Event created — invite your friends!');
+    celebrate();
     form.reset();
     document.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
     navigate(`event/${data.id}`);

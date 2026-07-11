@@ -1,7 +1,8 @@
-const CACHE_NAME = 'gather-shell-v8';
+const CACHE_NAME = 'gather-shell-v9';
 const SHELL_FILES = [
   './', './index.html', './style.css', './config.js', './mock-api.js',
   './api.js', './supabase-client.js', './animations.js', './app.js', './manifest.json', './icon.svg',
+  './qr.png',
 ];
 
 self.addEventListener('install', (event) => {

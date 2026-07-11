@@ -1,6 +1,6 @@
 # Gather — Christian Community Hangouts
 
-**Live at: https://aneesh15here.github.io/christian-singles-hangouts/**
+**Live at: https://realchristiansgather.com** (also served at https://aneesh15here.github.io/christian-singles-hangouts/)
 (GitHub Pages, connected to a live Supabase backend)
 
 A community hangout app: browse and host group activities (hikes, coffee,
@@ -267,6 +267,28 @@ adds no new privacy surface.
   columns and degrades gracefully).
 - Geocoding by venue *name* is approximate — a specific address or
   "Venue, Suburb/City" geocodes much better than a bare venue name.
+
+## Marketing kit ("Spread the word")
+
+`#/share` (linked from the nav and every page's footer, no login needed) is a
+self-serve marketing page:
+
+- A branded **QR code** (`qr.png`, generated offline, points at
+  https://realchristiansgather.com) with copy-link, native share
+  (`navigator.share`, shown only where supported), and a **Print a flyer**
+  button — a print stylesheet renders a clean one-page poster with the QR.
+- **Copy-paste blurbs** tuned per channel: group chat, Instagram
+  caption/story, church bulletin announcement.
+- The site also ships **Open Graph / Twitter card tags + `og-image.png`**
+  (1200×630, generated offline), a canonical URL, JSON-LD, `robots.txt`,
+  and `sitemap.xml`, so links pasted into iMessage/WhatsApp/Instagram/Facebook
+  unfurl into a rich branded card and search engines index it properly.
+- Event pages additionally offer **Add to calendar** (a standards-compliant
+  `.ics` download) and a native share option in the Share menu on devices
+  that support it.
+
+Regenerate `qr.png` / `og-image.png` with `scratchpad/gen_assets.py`-style
+script (qrcode + Pillow) if the domain or branding changes.
 
 ## Feedback / contact admin
 
