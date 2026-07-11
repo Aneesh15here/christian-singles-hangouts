@@ -290,6 +290,12 @@ self-serve marketing page:
 Regenerate `qr.png` / `og-image.png` with `scratchpad/gen_assets.py`-style
 script (qrcode + Pillow) if the domain or branding changes.
 
+**"Buy me a coffee" donations**: set `DONATE_URL` in `config.js` to a
+buymeacoffee.com / ko-fi.com / paypal.me link and a donate card appears on
+the Spread-the-word page plus a "☕ Buy me a coffee" link in every page's
+footer. Leave it empty (the default) and every donate element stays hidden —
+the app never shows a dead button.
+
 ## Feedback / contact admin
 
 A low-key "Feedback" link sits in the footer on every page (easy to miss

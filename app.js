@@ -801,6 +801,17 @@
     });
   }
 
+  // "Buy me a coffee" — every donate element stays hidden unless a donation
+  // link is configured in config.js, so the app never shows a dead button.
+  const donateUrl = (window.APP_CONFIG || {}).DONATE_URL;
+  if (donateUrl) {
+    const footLink = document.getElementById('donate-footer-link');
+    footLink.href = donateUrl;
+    footLink.hidden = false;
+    document.getElementById('donate-card-btn').href = donateUrl;
+    document.getElementById('donate-card').hidden = false;
+  }
+
   document.getElementById('share-print-flyer').addEventListener('click', () => {
     document.body.classList.add('printing-flyer');
     const cleanup = () => {

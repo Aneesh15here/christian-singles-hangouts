@@ -730,6 +730,8 @@ html { scroll-behavior: smooth; }
 .share-hint { font-size: 12px; margin: 12px 0 0; }
 .share-blurb { background: var(--cream); border-radius: 10px; padding: 12px 14px; font-size: 14px; color: var(--ink); line-height: 1.5; }
 .btn-copy-blurb { width: 100%; }
+.donate-card { border: 2px solid var(--gold); background: #fffaf0; }
+.donate-copy { font-size: 14px; }
 
 /* -------------------------------------------------------- countdown pills */
 .pill-when { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--border); color: var(--ink-soft); }

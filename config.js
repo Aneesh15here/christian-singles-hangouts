@@ -11,4 +11,8 @@
 window.APP_CONFIG = {
   SUPABASE_URL: 'https://vyewxadnpudvbbxtwnwt.supabase.co',
   SUPABASE_ANON_KEY: 'sb_publishable_P_unpWm8Ja_rYv8pdMOPQQ_rbD1VqC4',
+
+  // Optional "buy me a coffee" donation link (buymeacoffee.com, ko-fi.com,
+  // paypal.me, etc.). Leave empty to hide every donate button in the app.
+  DONATE_URL: '',
 };
