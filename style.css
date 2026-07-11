@@ -168,10 +168,11 @@ main { max-width: 960px; margin: 0 auto; padding: 0 20px 80px; }
 }
 .scripture-verse .verse-version { font-weight: 600; color: var(--ink-soft); }
 .scripture-copyright {
-  margin: 14px 0 0;
-  font-size: 11px;
+  margin: 10px 0 0;
+  font-size: 9px;
+  line-height: 1.4;
   color: var(--ink-soft);
-  opacity: 0.8;
+  opacity: 0.55;
 }
 
 .value-props {
