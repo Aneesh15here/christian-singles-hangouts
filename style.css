@@ -499,7 +499,6 @@ main { max-width: 960px; margin: 0 auto; padding: 0 20px 80px; }
   cursor: pointer;
 }
 .footer-link:hover { color: var(--terracotta-dark); }
-.feedback-alt { font-size: 13px; margin: 14px 0 0; }
 
 /* ---------------------------------------------------------------- modal */
 .modal-overlay {
