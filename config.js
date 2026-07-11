@@ -14,5 +14,5 @@ window.APP_CONFIG = {
 
   // Optional "buy me a coffee" donation link (buymeacoffee.com, ko-fi.com,
   // paypal.me, etc.). Leave empty to hide every donate button in the app.
-  DONATE_URL: '',
+  DONATE_URL: 'https://paypal.me/Realchristiansgather',
 };
