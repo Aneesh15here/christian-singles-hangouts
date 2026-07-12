@@ -327,6 +327,7 @@
         <div class="event-card-top">
           <span>
             <span class="pill">${escapeHtml(categoryLabel(ev.category))}</span>
+            ${ev.is_private ? '<span class="pill pill-private">🔒 Invite-only</span>' : ''}
             ${whenPillHtml(ev)}
           </span>
           <span class="event-date">${formatDate(ev.event_date)} · ${formatTime(ev.event_time)}</span>
@@ -364,22 +365,25 @@
     if (!id) { container.innerHTML = '<p>Event not found.</p>'; return; }
 
     const { data: ev, error } = await Api.getEvent(id);
-    if (error || !ev) { container.innerHTML = '<p>This event couldn\'t be found — it may have been removed.</p>'; return; }
+    if (error || !ev) { container.innerHTML = '<p>This event couldn\'t be found — it may have been removed, or it may be invite-only and you weren\'t invited.</p>'; return; }
 
     const { data: attendees } = await Api.listAttendees(id);
     const myRsvp = state.session ? (await Api.getMyRsvp(id, state.session.user.id)).data : null;
     const isHost = state.session && state.session.user.id === ev.host_id;
     const isFull = ev.capacity && (attendees?.length || 0) >= ev.capacity;
+    const inviteCount = (isHost && ev.is_private) ? (await Api.listEventInvites(id)).data?.length || 0 : null;
 
     const shareUrl = `${location.origin}${location.pathname}#/event/${id}`;
 
     container.innerHTML = `
       <div class="event-detail-header">
         <span class="pill">${escapeHtml(categoryLabel(ev.category))}</span>
+        ${ev.is_private ? '<span class="pill pill-private">🔒 Invite-only</span>' : ''}
         <h1>${escapeHtml(ev.title)}</h1>
         <p class="event-meta">📅 ${formatDate(ev.event_date)} at ${formatTime(ev.event_time)} · 📍 ${escapeHtml(ev.location_name)}</p>
         <p class="event-meta">Hosted by <strong>${escapeHtml(ev.host?.name || 'Someone')}</strong>${ev.host?.bio ? ' — ' + escapeHtml(ev.host.bio) : ''}</p>
         ${ev.capacity ? `<p class="event-meta">${attendees?.length || 0} / ${ev.capacity} spots filled</p>` : `<p class="event-meta">${attendees?.length || 0} going</p>`}
+        ${inviteCount !== null ? `<p class="event-meta">🔒 ${inviteCount} ${inviteCount === 1 ? 'person' : 'people'} invited — <a href="#/edit/${id}" class="link">manage the guest list</a></p>` : ''}
       </div>
 
       <p class="event-description">${escapeHtml(ev.description)}</p>
@@ -986,7 +990,19 @@
     document.getElementById('create-submit-btn').textContent = 'Create event';
     document.getElementById('template-chips').style.display = '';
     document.getElementById('create-form').reset();
+    document.getElementById('invite-emails-wrap').hidden = true;
     document.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+  }
+
+  document.getElementById('create-private-toggle').addEventListener('change', (e) => {
+    document.getElementById('invite-emails-wrap').hidden = !e.target.checked;
+  });
+
+  function parseEmailList(raw) {
+    return (raw || '')
+      .split(/[,\n]+/)
+      .map((s) => s.trim())
+      .filter((s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s));
   }
 
   async function enterEditMode(eventId) {
@@ -1021,6 +1037,13 @@
     form.event_time.value = state.editingSnapshot.event_time;
     form.location_name.value = ev.location_name;
     form.capacity.value = ev.capacity ?? '';
+    form.is_private.checked = !!ev.is_private;
+    document.getElementById('invite-emails-wrap').hidden = !ev.is_private;
+    form.invite_emails.value = '';
+    if (ev.is_private) {
+      const { data: invites } = await Api.listEventInvites(eventId);
+      form.invite_emails.value = (invites || []).map((i) => i.invited_email).join(', ');
+    }
   }
 
   // Only changes attendees actually plan around trigger a notification.
@@ -1046,7 +1069,9 @@
       event_time: fd.get('event_time'),
       location_name: fd.get('location_name').trim(),
       capacity: fd.get('capacity') ? Number(fd.get('capacity')) : null,
+      is_private: fd.get('is_private') === 'on',
     };
+    const inviteEmails = payload.is_private ? parseEmailList(fd.get('invite_emails')) : [];
 
     if (state.editingEventId) {
       const eventId = state.editingEventId;
@@ -1062,6 +1087,10 @@
         errEl.textContent = error.message || 'Could not save changes';
         errEl.hidden = false;
         return;
+      }
+      if (payload.is_private) {
+        const { error: inviteError } = await Api.syncEventInvites(eventId, state.session.user.id, inviteEmails);
+        if (inviteError) console.warn('Could not update the guest list:', inviteError.message);
       }
       const changes = meaningfulChanges(snapshot, payload);
       let notified = false;
@@ -1092,9 +1121,14 @@
       errEl.hidden = false;
       return;
     }
-    showToast('Event created — invite your friends!');
+    if (payload.is_private && inviteEmails.length) {
+      const { error: inviteError } = await Api.syncEventInvites(data.id, state.session.user.id, inviteEmails);
+      if (inviteError) console.warn('Could not save the guest list:', inviteError.message);
+    }
+    showToast(payload.is_private ? 'Invite-only event created.' : 'Event created — invite your friends!');
     celebrate();
     form.reset();
+    document.getElementById('invite-emails-wrap').hidden = true;
     document.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
     navigate(`event/${data.id}`);
   });
@@ -1124,7 +1158,11 @@
     const list = document.getElementById('my-events-list');
     const empty = document.getElementById('my-events-empty');
     const uid = state.session.user.id;
-    const { data } = myTab === 'hosting' ? await Api.myHostedEvents(uid) : await Api.myAttendingEvents(uid);
+    const { data } = myTab === 'hosting'
+      ? await Api.myHostedEvents(uid)
+      : myTab === 'invited'
+        ? await Api.myInvitedEvents(state.session.user.email)
+        : await Api.myAttendingEvents(uid);
 
     const existingBanner = document.querySelector('.reminder-banner');
     if (existingBanner) existingBanner.remove();
@@ -1137,7 +1175,9 @@
       list.innerHTML = '';
       empty.textContent = myTab === 'hosting'
         ? "You haven't hosted anything yet — start one from the Host tab!"
-        : "You haven't RSVP'd to anything yet — go find something on Discover!";
+        : myTab === 'invited'
+          ? "No invite-only events yet — when someone invites you by email, it'll show up here."
+          : "You haven't RSVP'd to anything yet — go find something on Discover!";
       empty.hidden = false;
       return;
     }
@@ -1217,7 +1257,7 @@
           <tbody>
             ${data.map((e) => `
               <tr>
-                <td class="wrap"><a href="#/event/${e.id}" class="link">${escapeHtml(e.title)}</a></td>
+                <td class="wrap"><a href="#/event/${e.id}" class="link">${escapeHtml(e.title)}</a>${e.is_private ? ' 🔒' : ''}</td>
                 <td>${escapeHtml(categoryLabel(e.category))}</td>
                 <td>${formatDate(e.event_date)} · ${formatTime(e.event_time)}</td>
                 <td class="wrap">${escapeHtml(e.location_name)}</td>

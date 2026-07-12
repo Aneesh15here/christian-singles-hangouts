@@ -127,6 +127,14 @@ window.RealApi = (function () {
     // columns yet), retry without coordinates rather than failing the event.
     if (error && /latitude|longitude/i.test(error.message || '')) {
       const { latitude, longitude, ...rest } = payload;
+      payload = rest;
+      ({ data, error } = await sb().from('events').insert(payload).select().single());
+    }
+    // Same fallback for databases that haven't run the invite-only-events
+    // migration yet (no is_private column) — the event is just created
+    // as an ordinary public event.
+    if (error && /is_private/i.test(error.message || '')) {
+      const { is_private, ...rest } = payload;
       ({ data, error } = await sb().from('events').insert(rest).select().single());
     }
     return { data, error };
@@ -137,9 +145,72 @@ window.RealApi = (function () {
     // Same missing-columns fallback as createEvent for pre-map databases.
     if (error && /latitude|longitude/i.test(error.message || '')) {
       const { latitude, longitude, ...rest } = payload;
+      payload = rest;
+      ({ data, error } = await sb().from('events').update(payload).eq('id', id).select().single());
+    }
+    if (error && /is_private/i.test(error.message || '')) {
+      const { is_private, ...rest } = payload;
       ({ data, error } = await sb().from('events').update(rest).eq('id', id).select().single());
     }
     return { data, error };
+  }
+
+  // Missing-table matcher for databases that haven't run the invite-only
+  // migration yet — invite management silently no-ops rather than erroring.
+  function isMissingInviteTable(error) {
+    return !!error && /event_invites/i.test(error.message || '') && /schema cache|does not exist/i.test(error.message || '');
+  }
+
+  // Replaces the full guest list for an event with `emails` — used by the
+  // host form, where the invite textarea is the single source of truth for
+  // who's invited (add an email, remove one, the next save reconciles it).
+  async function syncEventInvites(eventId, hostId, emails) {
+    const wanted = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
+    const { data: existing, error: listError } = await sb()
+      .from('event_invites')
+      .select('invited_email')
+      .eq('event_id', eventId);
+    if (isMissingInviteTable(listError)) return { error: null, skipped: true };
+    if (listError) return { error: listError };
+
+    const current = new Set((existing || []).map((r) => r.invited_email));
+    const toAdd = wanted.filter((e) => !current.has(e));
+    const toRemove = [...current].filter((e) => !wanted.includes(e));
+
+    if (toRemove.length) {
+      const { error } = await sb().from('event_invites').delete().eq('event_id', eventId).in('invited_email', toRemove);
+      if (error) return { error };
+    }
+    if (toAdd.length) {
+      const rows = toAdd.map((invited_email) => ({ event_id: eventId, invited_email, invited_by: hostId }));
+      const { error } = await sb().from('event_invites').insert(rows);
+      if (error) return { error };
+    }
+    return { error: null };
+  }
+
+  async function listEventInvites(eventId) {
+    const { data, error } = await sb()
+      .from('event_invites')
+      .select('invited_email, created_at')
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true });
+    if (isMissingInviteTable(error)) return { data: [], error: null };
+    return { data, error };
+  }
+
+  // Private events this user has been invited to, whether or not they've
+  // RSVP'd yet — surfaced as a dedicated "Invited" tab on My Events, since
+  // invite-only events don't show up in Discover for them to stumble onto.
+  async function myInvitedEvents(userEmail) {
+    const { data, error } = await sb()
+      .from('event_invites')
+      .select('event_id, events(*, host:profiles(name))')
+      .eq('invited_email', (userEmail || '').toLowerCase());
+    if (isMissingInviteTable(error)) return { data: [], error: null };
+    if (error) return { data: null, error };
+    const events = (data || []).map((r) => r.events).filter(Boolean);
+    return { data: await withAttendeeCounts(events), error: null };
   }
 
   // Missing-table matcher for databases that haven't run the notifications
@@ -431,5 +502,8 @@ window.RealApi = (function () {
     adminListReports,
     adminUpdateReportStatus,
     adminListFeedback,
+    syncEventInvites,
+    listEventInvites,
+    myInvitedEvents,
   };
 })();

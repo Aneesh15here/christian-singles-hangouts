@@ -154,7 +154,9 @@ browser (or incognito window) to see it as a second user.
 - **Host**: pick a suggested-plan template (coffee, hike, board games,
   potluck, service/volunteering, Bible study, trivia, pickup sports) to
   prefill a title/description/category, or write your own from scratch.
-  Set date, time, location, and an optional capacity.
+  Set date, time, location, and an optional capacity. Check "🔒
+  Invite-only" to make it visible only to people you invite by email —
+  see **Invite-only events** below.
 - **Edit an event**: hosts see an "✏️ Edit event" button on their own
   event's page — same form as hosting, prefilled. If the **date, time, or
   location** changes, everyone who's RSVP'd gets an in-app notification;
@@ -180,7 +182,7 @@ browser (or incognito window) to see it as a second user.
   Instagram (copies a caption + link, since Instagram has no web
   share-intent for posts — paste it into a Story or DM), email (a
   prefilled `mailto:`), and plain copy-link.
-- **My Events**: separate Attending / Hosting tabs, plus an inline
+- **My Events**: Attending / Hosting / 🔒 Invited tabs, plus an inline
   reminder banner for anything you're attending in the next 48 hours.
 - **Profile**: name + optional short bio — that's the entire personal data
   footprint.
@@ -210,8 +212,11 @@ browser (or incognito window) to see it as a second user.
 - **`events`** — `host_id`, `title`, `description`, `category`,
   `event_date`, `event_time`, `location_name`, optional `latitude`/
   `longitude` (geocoded from the location name at creation, for the
-  activity map), optional `capacity`. Nothing prevents two events at the
-  same place/time — that's deliberate.
+  activity map), optional `capacity`, `is_private` (default `false`).
+  Nothing prevents two events at the same place/time — that's deliberate.
+  See **Invite-only events** below for what `is_private` does.
+- **`event_invites`** — `event_id`, `invited_email`, `invited_by`. The
+  guest list for a private event; see **Invite-only events** below.
 - **`rsvps`** — links a `user_id` to an `event_id`, with an optional
   one-line `intro_line`. Unique per (event, user).
 - **`event_messages`** — group chat scoped to one `event_id`. RLS only
@@ -399,6 +404,130 @@ required for day-to-day use.
 - Works in demo mode too: the seeded "Maria" account
   (`maria@example.com` / `demo`) is the demo admin, so you can try the
   whole dashboard without touching Supabase.
+
+## Invite-only events
+
+Hosts can check "🔒 Invite-only" when creating (or editing) an event and
+list guests by email in the textarea that appears. A private event is
+**invisible at the database level**, not just hidden in the UI — RLS makes
+the row unreadable to everyone except its host, the people on its guest
+list (matched by their account's email), and admins. Someone who isn't
+invited gets the same "couldn't be found" message as a deleted event, on
+Discover, on a direct link, or querying the API directly — nothing ever
+confirms a private event exists to someone who isn't on the list.
+
+- The invite textarea is the single source of truth for the guest list:
+  editing an already-private event pre-fills it with everyone currently
+  invited, and saving reconciles the list (removed emails lose access,
+  added ones gain it). There's a dedicated **🔒 Invited** tab on My Events
+  so invitees can find events they've been invited to without needing to
+  keep the original link — invite-only events don't show up on Discover
+  for anyone *except* the people who can see them, so this tab is the
+  fallback if a link gets lost.
+- Guests need a Gather account with a matching email — there's no
+  anonymous/token-based access. This keeps the security model identical
+  to the rest of the app (everything already requires login except
+  landing/guidelines/map), rather than introducing a second, weaker access
+  path.
+- **New table + modified policies required.** This migration is different
+  from the others in this file — it doesn't just add new policies, it
+  **replaces** the original "Events/RSVPs are viewable by everyone"
+  policies so they also check `is_private`. For every event that predates
+  this feature (`is_private` defaults to `false`), nothing changes —
+  `not is_private` alone keeps the row public. Run this in the SQL Editor
+  (not the whole `schema.sql`):
+
+  ```sql
+  alter table public.events add column if not exists is_private boolean not null default false;
+
+  create table if not exists public.event_invites (
+    id uuid primary key default gen_random_uuid(),
+    event_id uuid not null references public.events (id) on delete cascade,
+    invited_email text not null,
+    invited_by uuid not null references public.profiles (id) on delete cascade,
+    created_at timestamptz not null default now(),
+    unique (event_id, invited_email)
+  );
+
+  create index if not exists event_invites_event_id_idx on public.event_invites (event_id);
+  create index if not exists event_invites_email_idx on public.event_invites (invited_email);
+
+  alter table public.event_invites enable row level security;
+
+  create policy "Hosts and invitees can view an event's invite list"
+    on public.event_invites for select
+    using (
+      exists (select 1 from public.events e where e.id = event_invites.event_id and e.host_id = auth.uid())
+      or invited_email = lower(coalesce(auth.jwt() ->> 'email', ''))
+    );
+
+  create policy "Hosts can invite people to their own events"
+    on public.event_invites for insert
+    with check (
+      exists (select 1 from public.events e where e.id = event_invites.event_id and e.host_id = auth.uid())
+    );
+
+  create policy "Hosts can remove invites from their own events"
+    on public.event_invites for delete
+    using (
+      exists (select 1 from public.events e where e.id = event_invites.event_id and e.host_id = auth.uid())
+    );
+
+  drop policy if exists "Events are viewable by everyone" on public.events;
+  create policy "Events are viewable unless invite-only"
+    on public.events for select
+    using (
+      not is_private
+      or host_id = auth.uid()
+      or exists (
+        select 1 from public.event_invites ei
+        where ei.event_id = events.id and ei.invited_email = lower(coalesce(auth.jwt() ->> 'email', ''))
+      )
+      or exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+    );
+
+  drop policy if exists "RSVPs are viewable by everyone" on public.rsvps;
+  create policy "RSVPs viewable if the event is visible to you"
+    on public.rsvps for select
+    using (
+      exists (
+        select 1 from public.events e
+        where e.id = rsvps.event_id
+          and (
+            not e.is_private
+            or e.host_id = auth.uid()
+            or exists (select 1 from public.event_invites ei where ei.event_id = e.id and ei.invited_email = lower(coalesce(auth.jwt() ->> 'email', '')))
+            or exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+          )
+      )
+    );
+
+  drop policy if exists "Users can RSVP as themselves" on public.rsvps;
+  create policy "Users can RSVP as themselves to events they can see"
+    on public.rsvps for insert
+    with check (
+      auth.uid() = user_id
+      and exists (
+        select 1 from public.events e
+        where e.id = rsvps.event_id
+          and (
+            not e.is_private
+            or e.host_id = auth.uid()
+            or exists (select 1 from public.event_invites ei where ei.event_id = e.id and ei.invited_email = lower(coalesce(auth.jwt() ->> 'email', '')))
+          )
+      )
+    );
+  ```
+
+  Until this is run, checking "Invite-only" still creates the event (as an
+  ordinary public one — `createEvent`/`updateEvent` silently drop
+  `is_private` if the column doesn't exist yet) and the guest-list save
+  silently no-ops, same graceful-degradation pattern as every other
+  migration in this file.
+- Works in demo mode too: create a private event as one seeded account and
+  invite the other's email (`maria@example.com` / `james@example.com`,
+  both password `demo`) to see it work from both sides — including that a
+  third, uninvited account genuinely can't find it.
 
 ## What's tested
 

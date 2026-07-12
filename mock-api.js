@@ -163,6 +163,31 @@ window.MockApi = (function () {
     return profiles[hostId] ? { name: profiles[hostId].name } : null;
   }
 
+  // Mirrors the real backend's RLS: a private event is visible only to its
+  // host, an admin, or someone on its invite list (matched by email) — kept
+  // as its own check (rather than pre-filtering once) so every read path
+  // enforces it the same way, same as the SQL policies do.
+  function currentUserEmail() {
+    const session = currentSession();
+    return session ? (session.user.email || '').toLowerCase() : null;
+  }
+
+  function isInvitedTo(eventId, email) {
+    if (!email) return false;
+    return read('event_invites', []).some((inv) => inv.event_id === eventId && inv.invited_email === email);
+  }
+
+  function canSeeEvent(event) {
+    if (!event.is_private) return true;
+    const session = currentSession();
+    const userId = session?.user?.id;
+    if (!userId) return false;
+    if (event.host_id === userId) return true;
+    const profiles = read('profiles', {});
+    if (profiles[userId]?.is_admin) return true;
+    return isInvitedTo(event.id, currentUserEmail());
+  }
+
   function attachHostAndCounts(events) {
     const rsvps = read('rsvps', []);
     return events.map((e) => ({
@@ -173,7 +198,7 @@ window.MockApi = (function () {
   }
 
   async function listEvents({ date, location, category } = {}) {
-    let events = read('events', []);
+    let events = read('events', []).filter(canSeeEvent);
     const today = new Date().toISOString().slice(0, 10);
     events = events.filter((e) => (date ? e.event_date === date : e.event_date >= today));
     if (location) events = events.filter((e) => e.location_name.toLowerCase().includes(location.toLowerCase()));
@@ -185,7 +210,9 @@ window.MockApi = (function () {
   async function getEvent(id) {
     const events = read('events', []);
     const event = events.find((e) => e.id === id);
-    if (!event) return { data: null, error: { message: 'Event not found' } };
+    // Same "not found" for a genuinely missing event and a private one you
+    // can't see — never confirms a private event's existence either way.
+    if (!event || !canSeeEvent(event)) return { data: null, error: { message: 'Event not found' } };
     const profiles = read('profiles', {});
     const hostProfile = profiles[event.host_id];
     return { data: { ...event, host: hostProfile ? { name: hostProfile.name, bio: hostProfile.bio } : null }, error: null };
@@ -259,7 +286,7 @@ window.MockApi = (function () {
   }
 
   async function listEventLocations() {
-    const events = read('events', []).filter((e) => e.latitude != null && e.longitude != null);
+    const events = read('events', []).filter((e) => e.latitude != null && e.longitude != null && canSeeEvent(e));
     return { data: events.map((e) => ({ location_name: e.location_name, latitude: e.latitude, longitude: e.longitude })), error: null };
   }
 
@@ -281,6 +308,8 @@ window.MockApi = (function () {
   }
 
   async function rsvp(eventId, userId, introLine) {
+    const event = read('events', []).find((e) => e.id === eventId);
+    if (!event || !canSeeEvent(event)) return { error: { message: 'Event not found' } };
     const rsvps = read('rsvps', []);
     if (rsvps.some((r) => r.event_id === eventId && r.user_id === userId)) {
       return { error: { message: 'Already RSVP\'d' } };
@@ -403,8 +432,35 @@ window.MockApi = (function () {
     const events = read('events', []);
     const data = rsvps
       .map((r) => events.find((e) => e.id === r.event_id))
-      .filter(Boolean);
+      .filter((e) => e && canSeeEvent(e));
     return { data: attachHostAndCounts(data), error: null };
+  }
+
+  // ---------------------------------------------------------- event invites
+  async function syncEventInvites(eventId, hostId, emails) {
+    const wanted = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))];
+    const all = read('event_invites', []);
+    const others = all.filter((inv) => inv.event_id !== eventId);
+    const rows = wanted.map((invited_email) => ({
+      id: uid(), event_id: eventId, invited_email, invited_by: hostId, created_at: new Date().toISOString(),
+    }));
+    write('event_invites', [...others, ...rows]);
+    return { error: null };
+  }
+
+  async function listEventInvites(eventId) {
+    const data = read('event_invites', [])
+      .filter((inv) => inv.event_id === eventId)
+      .map((inv) => ({ invited_email: inv.invited_email, created_at: inv.created_at }))
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    return { data, error: null };
+  }
+
+  async function myInvitedEvents(userEmail) {
+    const email = (userEmail || '').toLowerCase();
+    const eventIds = new Set(read('event_invites', []).filter((inv) => inv.invited_email === email).map((inv) => inv.event_id));
+    const events = read('events', []).filter((e) => eventIds.has(e.id));
+    return { data: attachHostAndCounts(events), error: null };
   }
 
   return {
@@ -437,6 +493,9 @@ window.MockApi = (function () {
     submitReport,
     myHostedEvents,
     myAttendingEvents,
+    syncEventInvites,
+    listEventInvites,
+    myInvitedEvents,
     adminListMembers,
     adminListEvents,
     adminListReports,

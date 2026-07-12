@@ -301,6 +301,103 @@ revoke all on function public.admin_list_members() from public;
 grant execute on function public.admin_list_members() to authenticated;
 
 -- ---------------------------------------------------------------------
+-- Invite-only events: an is_private flag plus an explicit per-event guest
+-- list (event_invites), matched by the invitee's account email. A private
+-- event is not merely hidden in the UI — it's invisible at the RLS level
+-- to anyone who isn't its host, on its guest list, or an admin, so a
+-- direct link, a guessed UUID, or a raw API call can't see it either.
+-- Uninvited people simply get "not found", the same as a deleted event —
+-- this never confirms a private event's existence to someone who isn't on
+-- the list.
+-- ---------------------------------------------------------------------
+alter table public.events add column if not exists is_private boolean not null default false;
+
+create table if not exists public.event_invites (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references public.events (id) on delete cascade,
+  invited_email text not null,
+  invited_by uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (event_id, invited_email)
+);
+
+create index if not exists event_invites_event_id_idx on public.event_invites (event_id);
+create index if not exists event_invites_email_idx on public.event_invites (invited_email);
+
+alter table public.event_invites enable row level security;
+
+create policy "Hosts and invitees can view an event's invite list"
+  on public.event_invites for select
+  using (
+    exists (select 1 from public.events e where e.id = event_invites.event_id and e.host_id = auth.uid())
+    or invited_email = lower(coalesce(auth.jwt() ->> 'email', ''))
+  );
+
+create policy "Hosts can invite people to their own events"
+  on public.event_invites for insert
+  with check (
+    exists (select 1 from public.events e where e.id = event_invites.event_id and e.host_id = auth.uid())
+  );
+
+create policy "Hosts can remove invites from their own events"
+  on public.event_invites for delete
+  using (
+    exists (select 1 from public.events e where e.id = event_invites.event_id and e.host_id = auth.uid())
+  );
+
+-- Replaces the original "viewable by everyone" policy — for a non-private
+-- event (the default, and every event that predates this feature) nothing
+-- changes: `not is_private` alone already makes the row visible.
+drop policy if exists "Events are viewable by everyone" on public.events;
+create policy "Events are viewable unless invite-only"
+  on public.events for select
+  using (
+    not is_private
+    or host_id = auth.uid()
+    or exists (
+      select 1 from public.event_invites ei
+      where ei.event_id = events.id and ei.invited_email = lower(coalesce(auth.jwt() ->> 'email', ''))
+    )
+    or exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  );
+
+-- Same gating on rsvps, so the attendee list and the ability to RSVP for a
+-- private event aren't reachable by anyone who can't see the event itself
+-- (RLS is per-table — hiding the events row alone wouldn't stop someone
+-- who already has the event_id from querying rsvps directly).
+drop policy if exists "RSVPs are viewable by everyone" on public.rsvps;
+create policy "RSVPs viewable if the event is visible to you"
+  on public.rsvps for select
+  using (
+    exists (
+      select 1 from public.events e
+      where e.id = rsvps.event_id
+        and (
+          not e.is_private
+          or e.host_id = auth.uid()
+          or exists (select 1 from public.event_invites ei where ei.event_id = e.id and ei.invited_email = lower(coalesce(auth.jwt() ->> 'email', '')))
+          or exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+        )
+    )
+  );
+
+drop policy if exists "Users can RSVP as themselves" on public.rsvps;
+create policy "Users can RSVP as themselves to events they can see"
+  on public.rsvps for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.events e
+      where e.id = rsvps.event_id
+        and (
+          not e.is_private
+          or e.host_id = auth.uid()
+          or exists (select 1 from public.event_invites ei where ei.event_id = e.id and ei.invited_email = lower(coalesce(auth.jwt() ->> 'email', '')))
+        )
+    )
+  );
+
+-- ---------------------------------------------------------------------
 -- Realtime for event group chat (wrapped so re-running this file is safe)
 -- ---------------------------------------------------------------------
 do $$

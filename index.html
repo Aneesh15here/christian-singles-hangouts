@@ -319,6 +319,16 @@
       <label>Capacity (optional)
         <input type="number" name="capacity" min="1" placeholder="Leave blank for no limit" />
       </label>
+      <label class="checkbox-label">
+        <input type="checkbox" name="is_private" id="create-private-toggle" />
+        🔒 Invite-only — only people you invite can see or RSVP to this event
+      </label>
+      <div id="invite-emails-wrap" hidden>
+        <label>Invite by email
+          <textarea name="invite_emails" id="create-invite-emails" rows="3" placeholder="friend1@example.com, friend2@example.com"></textarea>
+        </label>
+        <p class="field-hint">Separate multiple emails with commas or new lines. They'll need a Gather account with a matching email to see the event — add more any time by editing it later.</p>
+      </div>
       <button type="submit" id="create-submit-btn" class="btn btn-primary btn-block">Create event</button>
       <p class="form-error" data-error hidden></p>
     </form>
@@ -330,6 +340,7 @@
     <div class="tabs">
       <button class="tab-btn active" data-my-tab="attending">Attending</button>
       <button class="tab-btn" data-my-tab="hosting">Hosting</button>
+      <button class="tab-btn" data-my-tab="invited">🔒 Invited</button>
     </div>
     <div id="my-events-list" class="events-grid"></div>
     <p id="my-events-empty" class="empty-state" hidden></p>
