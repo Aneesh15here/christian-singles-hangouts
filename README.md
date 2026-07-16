@@ -293,9 +293,15 @@ self-serve marketing page:
 - Event pages additionally offer **Add to calendar** (a standards-compliant
   `.ics` download) and a native share option in the Share menu on devices
   that support it.
+- **Ready-to-post promo graphics** — `promo-square.png` (1080×1080, an
+  Instagram feed post) and `promo-story.png` (1080×1920, an Instagram/
+  Facebook Story), both generated offline with the same brand gradient,
+  icon, and copy as the rest of the site. Not linked from the app anywhere;
+  they're just sitting in the repo for whoever's doing the posting to grab.
 
-Regenerate `qr.png` / `og-image.png` with [`scripts/gen_assets.py`](scripts/gen_assets.py)
-(qrcode + Pillow) if the domain or branding changes:
+Regenerate `qr.png` / `og-image.png` / `promo-square.png` / `promo-story.png`
+with [`scripts/gen_assets.py`](scripts/gen_assets.py) (qrcode + Pillow) if
+the domain or branding changes:
 
 ```bash
 python3 -m venv /tmp/gen-assets-venv
@@ -634,5 +640,6 @@ want to configure a real SMTP provider under Authentication → Emails).
 - `schema.sql` — run this once in your Supabase project's SQL Editor
 - `manifest.json`, `sw.js`, `icon.svg` — PWA installability, matching the
   pattern used by the other apps in this folder
-- `scripts/gen_assets.py` — regenerates `og-image.png` / `qr.png` from the
-  current branding (dev-only tool, not part of the app's runtime)
+- `scripts/gen_assets.py` — regenerates `og-image.png` / `qr.png` /
+  `promo-square.png` / `promo-story.png` from the current branding
+  (dev-only tool, not part of the app's runtime)
