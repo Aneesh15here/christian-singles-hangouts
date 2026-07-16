@@ -294,8 +294,14 @@ self-serve marketing page:
   `.ics` download) and a native share option in the Share menu on devices
   that support it.
 
-Regenerate `qr.png` / `og-image.png` with `scratchpad/gen_assets.py`-style
-script (qrcode + Pillow) if the domain or branding changes.
+Regenerate `qr.png` / `og-image.png` with [`scripts/gen_assets.py`](scripts/gen_assets.py)
+(qrcode + Pillow) if the domain or branding changes:
+
+```bash
+python3 -m venv /tmp/gen-assets-venv
+/tmp/gen-assets-venv/bin/pip install pillow qrcode
+/tmp/gen-assets-venv/bin/python3 scripts/gen_assets.py
+```
 
 **"Buy me a coffee" donations**: set `DONATE_URL` in `config.js` to a
 buymeacoffee.com / ko-fi.com / paypal.me link and a donate card appears on
@@ -628,3 +634,5 @@ want to configure a real SMTP provider under Authentication → Emails).
 - `schema.sql` — run this once in your Supabase project's SQL Editor
 - `manifest.json`, `sw.js`, `icon.svg` — PWA installability, matching the
   pattern used by the other apps in this folder
+- `scripts/gen_assets.py` — regenerates `og-image.png` / `qr.png` from the
+  current branding (dev-only tool, not part of the app's runtime)
