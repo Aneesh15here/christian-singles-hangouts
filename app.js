@@ -227,7 +227,7 @@
       navigate('confirm');
       return;
     }
-    showToast(`Welcome to Gather, ${fd.get('name').trim()}!`);
+    showToast(`Welcome to Soulful Gather, ${fd.get('name').trim()}!`);
     await afterLogin();
   });
 
@@ -501,9 +501,9 @@
       const ics = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//Gather//realchristiansgather.com//EN',
+        'PRODID:-//Soulful Gather//soulfulgather.com//EN',
         'BEGIN:VEVENT',
-        `UID:${ev.id}@realchristiansgather.com`,
+        `UID:${ev.id}@soulfulgather.com`,
         `DTSTART:${fmtLocal(start)}`,
         `DTEND:${fmtLocal(end)}`,
         `SUMMARY:${icsEscape(ev.title)}`,
@@ -516,7 +516,7 @@
       const blob = new Blob([ics], { type: 'text/calendar' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'gather-event.ics';
+      a.download = 'soulful-gather-event.ics';
       a.click();
       URL.revokeObjectURL(a.href);
       showToast('Added! Open the download to put it in your calendar.');
@@ -737,7 +737,7 @@
 
   function inviteMessage({ short } = {}) {
     const { event: ev, shareUrl } = inviteContext;
-    const hostName = ev.host?.name || 'A Gather host';
+    const hostName = ev.host?.name || 'A Soulful Gather host';
     const when = `${formatDate(ev.event_date)} at ${formatTime(ev.event_time)}`;
     const note = document.getElementById('invite-note').value.trim();
     if (short) {
@@ -745,7 +745,7 @@
     }
     const noteLine = note ? `${note}\n\n` : '';
     const bioLine = ev.host?.bio ? `\n\nAbout ${hostName}: ${ev.host.bio}` : '';
-    return `${hostName} is inviting you to "${ev.title}"!\n\n📅 ${when}\n📍 ${ev.location_name}\n\n${noteLine}${ev.description}${bioLine}\n\nRSVP here: ${shareUrl}\n\n— Sent via Gather`;
+    return `${hostName} is inviting you to "${ev.title}"!\n\n📅 ${when}\n📍 ${ev.location_name}\n\n${noteLine}${ev.description}${bioLine}\n\nRSVP here: ${shareUrl}\n\n— Sent via Soulful Gather`;
   }
 
   document.getElementById('invite-email-btn').addEventListener('click', () => {
@@ -774,7 +774,7 @@
   });
 
   // --------------------------------------------------------- spread the word
-  const SITE_URL = 'https://realchristiansgather.com/';
+  const SITE_URL = 'https://soulfulgather.com/';
 
   async function copyToClipboard(text, toastMsg) {
     try {
@@ -798,8 +798,8 @@
     nativeShareBtn.hidden = false;
     nativeShareBtn.addEventListener('click', () => {
       navigator.share({
-        title: 'Gather — Real hangouts. Real people.',
-        text: 'Hikes, coffee, game nights, Bible study — hosted by people like you. Free to join.',
+        title: 'Soulful Gather — Real hangouts. Real people.',
+        text: 'Meaningful gatherings that nourish the soul. Hikes, coffee, game nights, Bible study — hosted by people like you. Free to join.',
         url: SITE_URL,
       }).catch(() => {});
     });

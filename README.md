@@ -1,6 +1,8 @@
-# Gather — Christian Community Hangouts
+# Soulful Gather — Christian Community Hangouts
 
-**Live at: https://realchristiansgather.com** (also served at https://aneesh15here.github.io/christian-singles-hangouts/)
+**Meaningful gatherings that nourish the soul.**
+
+**Live at: https://soulfulgather.com** (also served at https://aneesh15here.github.io/christian-singles-hangouts/)
 (GitHub Pages, connected to a live Supabase backend)
 
 A community hangout app: browse and host group activities (hikes, coffee,
@@ -16,7 +18,7 @@ By design there is no private/direct messaging between individual members —
 the only chat is a group chat scoped to a specific event — and no
 swiping/matching mechanics of any kind. (The repo is named
 `christian-singles-hangouts` for historical reasons; the app itself is
-simply "Gather" and is not singles-specific.)
+simply "Soulful Gather" and is not singles-specific.)
 
 ## ⚠️ Setup required before this app works
 
@@ -279,7 +281,7 @@ adds no new privacy surface.
 self-serve marketing page:
 
 - A branded **QR code** (`qr.png`, generated offline, points at
-  https://realchristiansgather.com) with copy-link, native share
+  https://soulfulgather.com) with copy-link, native share
   (`navigator.share`, shown only where supported), and a **Print a flyer**
   button — a print stylesheet renders a clean one-page poster with the QR.
 - **Copy-paste blurbs** tuned per channel: group chat, Instagram
@@ -307,7 +309,7 @@ A low-key "Feedback" link sits in the footer on every page (easy to miss
 unless you're looking for it, by design — this isn't a primary nav item).
 It opens a small form (message + optional reply-to email) that anyone, logged
 in or not, can submit. There's also a permanent "email us directly" mailto
-link to the app's public admin address (`admin4realchristiansgather@gmail.com`
+link to the app's public admin address (`soulfulgather@outlook.com`
 — a dedicated address for this purpose, not anyone's personal email) right
 under the form, since there's no email-sending backend — submissions are also
 simply stored in a `feedback` table, readable from the in-app **Admin
@@ -424,7 +426,7 @@ confirms a private event exists to someone who isn't on the list.
   keep the original link — invite-only events don't show up on Discover
   for anyone *except* the people who can see them, so this tab is the
   fallback if a link gets lost.
-- Guests need a Gather account with a matching email — there's no
+- Guests need a Soulful Gather account with a matching email — there's no
   anonymous/token-based access. This keeps the security model identical
   to the rest of the app (everything already requires login except
   landing/guidelines/map), rather than introducing a second, weaker access

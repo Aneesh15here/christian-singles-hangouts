@@ -1,7 +1,7 @@
 {
-  "name": "Gather — Christian Community Hangouts",
-  "short_name": "Gather",
-  "description": "Find and host group hangouts — hikes, coffee, board games, Bible study, and more. A non-denominational Christian community open to everyone; less scrolling, more showing up.",
+  "name": "Soulful Gather — Christian Community Hangouts",
+  "short_name": "Soulful Gather",
+  "description": "Meaningful gatherings that nourish the soul. Find and host group hangouts — hikes, coffee, board games, Bible study, and more. A non-denominational Christian community open to everyone; less scrolling, more showing up.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#fdf6ee",
