@@ -123,18 +123,22 @@ def _draw_wrapped_centered(draw, y, text, font, fill, canvas_width, max_width, l
     return total - line_gap if lines else 0
 
 
-def _draw_icon_badge(draw, cx, cy, size):
-    """Draws the app's icon.svg brand mark (two heads over a shoulders
-    curve, on a rounded-square badge) centered at (cx, cy)."""
+def _draw_left(draw, x, y, text, font, fill):
+    bbox = draw.textbbox((0, 0), text, font=font)
+    draw.text((x, y), text, font=font, fill=fill)
+    return bbox[3] - bbox[1]
+
+
+def _draw_icon_mark(draw, cx, cy, size):
+    """Draws just the app's icon.svg mark (two heads over a shoulders
+    curve) centered at (cx, cy), sized as if in a 128x128 box — no
+    background shape, so callers can put it on their own backdrop."""
     scale = size / 128
     left, top = cx - size / 2, cy - size / 2
 
     def pt(x, y):
         return (left + x * scale, top + y * scale)
 
-    draw.rounded_rectangle(
-        [pt(0, 0), pt(128, 128)], radius=28 * scale, fill=_hex(ICON_BG)
-    )
     r = 16 * scale
     c1x, c1y = pt(46, 56)
     draw.ellipse([c1x - r, c1y - r, c1x + r, c1y + r], fill=_hex(ICON_CREAM))
@@ -142,6 +146,17 @@ def _draw_icon_badge(draw, cx, cy, size):
     draw.ellipse([c2x - r, c2y - r, c2x + r, c2y + r], fill=_hex(ICON_GOLD))
     arc_box = [pt(24, 68), pt(104, 148)]
     draw.arc(arc_box, start=200, end=340, fill=_hex(ICON_CREAM), width=round(8 * scale))
+
+
+def _draw_icon_badge(draw, cx, cy, size):
+    """Draws the app's icon.svg brand mark on its own rounded-square badge
+    (matching icon.svg's own background), centered at (cx, cy)."""
+    scale = size / 128
+    left, top = cx - size / 2, cy - size / 2
+    draw.rounded_rectangle(
+        [(left, top), (left + size, top + size)], radius=28 * scale, fill=_hex(ICON_BG)
+    )
+    _draw_icon_mark(draw, cx, cy, size)
 
 
 def _promo_background(width, height):
@@ -294,6 +309,58 @@ def gen_promo_story(path=None, width=1080, height=1920):
     print(f"Wrote {path} ({width}x{height})")
 
 
+def gen_profile_picture(path=None, size=512):
+    """Square social-profile avatar: just the icon.svg mark, no text — safe
+    for the circular crop every platform (Instagram/Facebook/X/etc.)
+    applies to profile photos. The badge fills corner-to-corner (no visible
+    rounding of its own) so nothing but brand color shows outside the
+    circular mask; the two-head mark sits well inside the inscribed circle
+    so it's never clipped."""
+    path = path or os.path.join(ROOT, "profile-picture.png")
+    img = Image.new("RGB", (size, size), _hex(ICON_BG))
+    draw = ImageDraw.Draw(img)
+    _draw_icon_mark(draw, size / 2, size / 2, size * 0.72)
+    img.save(path)
+    print(f"Wrote {path} ({size}x{size})")
+
+
+def gen_social_banner(path=None, width=1500, height=500):
+    """Wide social-page banner (X/Twitter header size; also reasonable as a
+    Facebook Page cover with center-cropping) — icon mark + name + tagline
+    + domain, laid out horizontally to suit the short, wide aspect ratio."""
+    path = path or os.path.join(ROOT, "banner-social.png")
+    img = _promo_background(width, height)
+    draw = ImageDraw.Draw(img)
+
+    icon_size = height * 0.62
+    icon_cx = width * 0.15
+    _draw_icon_badge(draw, icon_cx, height / 2, icon_size)
+
+    text_x = width * 0.28
+    max_w = width - text_x - width * 0.06
+
+    title_font = _fit_font(draw, BRAND_NAME, FONT_TITLE, max_w, round(height * 0.22))
+    tagline_font = ImageFont.truetype(FONT_ITALIC, round(height * 0.09))
+    domain_font = ImageFont.truetype(FONT_BOLD, round(height * 0.07))
+
+    title_bbox = draw.textbbox((0, 0), BRAND_NAME, font=title_font)
+    tagline_bbox = draw.textbbox((0, 0), TAGLINE, font=tagline_font)
+    gap1, gap2 = height * 0.09, height * 0.06
+    block_h = (
+        (title_bbox[3] - title_bbox[1]) + gap1
+        + (tagline_bbox[3] - tagline_bbox[1]) + gap2
+        + (domain_font.size)
+    )
+    y = height / 2 - block_h / 2
+
+    y += _draw_left(draw, text_x, y, BRAND_NAME, title_font, _hex(CREAM)) + gap1
+    y += _draw_left(draw, text_x, y, TAGLINE, tagline_font, _hex(CREAM_MUTED)) + gap2
+    _draw_left(draw, text_x, y, DOMAIN_LABEL, domain_font, _hex(CREAM))
+
+    img.convert("RGB").save(path)
+    print(f"Wrote {path} ({width}x{height})")
+
+
 def gen_qr(path=None, url=SITE_URL, box_size=22, border=4):
     """Branded QR code (ink-on-cream) pointing at the live site root, matching
     the SITE_URL constant used for share links in app.js."""
@@ -316,3 +383,5 @@ if __name__ == "__main__":
     gen_qr()
     gen_promo_square()
     gen_promo_story()
+    gen_profile_picture()
+    gen_social_banner()

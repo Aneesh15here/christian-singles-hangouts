@@ -298,9 +298,16 @@ self-serve marketing page:
   Facebook Story), both generated offline with the same brand gradient,
   icon, and copy as the rest of the site. Not linked from the app anywhere;
   they're just sitting in the repo for whoever's doing the posting to grab.
+- **Social profile assets** — `profile-picture.png` (512×512, just the
+  icon.svg mark filling the frame with no text, so it survives every
+  platform's circular avatar crop) and `banner-social.png` (1500×500, an
+  X/Twitter header — also usable as a Facebook Page cover with center-
+  cropping, though a FB cover gets a profile-photo circle overlaid on its
+  bottom-left corner, so check that overlap before using it there).
 
-Regenerate `qr.png` / `og-image.png` / `promo-square.png` / `promo-story.png`
-with [`scripts/gen_assets.py`](scripts/gen_assets.py) (qrcode + Pillow) if
+Regenerate any of these — `qr.png`, `og-image.png`, `promo-square.png`,
+`promo-story.png`, `profile-picture.png`, `banner-social.png` — with
+[`scripts/gen_assets.py`](scripts/gen_assets.py) (qrcode + Pillow) if
 the domain or branding changes:
 
 ```bash
@@ -641,5 +648,6 @@ want to configure a real SMTP provider under Authentication → Emails).
 - `manifest.json`, `sw.js`, `icon.svg` — PWA installability, matching the
   pattern used by the other apps in this folder
 - `scripts/gen_assets.py` — regenerates `og-image.png` / `qr.png` /
-  `promo-square.png` / `promo-story.png` from the current branding
-  (dev-only tool, not part of the app's runtime)
+  `promo-square.png` / `promo-story.png` / `profile-picture.png` /
+  `banner-social.png` from the current branding (dev-only tool, not part
+  of the app's runtime)
