@@ -1360,7 +1360,10 @@
     });
 
     window.addEventListener('hashchange', router);
-    if (!location.hash) location.hash = '#/landing';
+    // Don't force '#/landing' into the URL on first load — a bare URL
+    // (soulfulgather.com) already renders the landing view, since
+    // currentRoute() defaults an empty hash to 'landing'. Existing
+    // '#/landing' links still work and resolve to the same view.
     router();
 
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
